@@ -1,0 +1,73 @@
+{
+  "name": "flashalpha-historical",
+  "version": "0.1.0",
+  "description": "Official JavaScript/TypeScript SDK for the FlashAlpha Historical API — point-in-time replay of GEX, gamma flip, VRP, narrative, max pain, 0DTE, and the full stock summary at any minute back to 2018-04-16. Backtest options strategies against 6.7B+ option rows.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:unit": "jest tests/client.test.ts tests/replay.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "options",
+    "options-backtest",
+    "options-backtesting",
+    "historical-options",
+    "historical-options-data",
+    "options-replay",
+    "point-in-time",
+    "as-of",
+    "options-analytics",
+    "gamma-exposure",
+    "gex",
+    "gex-history",
+    "delta-exposure",
+    "dex",
+    "greeks",
+    "implied-volatility",
+    "iv",
+    "volatility-surface",
+    "0dte",
+    "zero-dte",
+    "vanna",
+    "charm",
+    "max-pain",
+    "vrp",
+    "variance-risk-premium",
+    "svi",
+    "variance-swap",
+    "dealer-positioning",
+    "options-trading",
+    "derivatives",
+    "finance",
+    "quant",
+    "flashalpha",
+    "flashalpha-historical"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlashAlpha-lab/flashalpha-historical-js.git"
+  },
+  "homepage": "https://historical.flashalpha.com",
+  "bugs": {
+    "url": "https://github.com/FlashAlpha-lab/flashalpha-historical-js/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.4",
+    "typescript": "^5.4.5",
+    "undici": "^7.24.6"
+  }
+}
