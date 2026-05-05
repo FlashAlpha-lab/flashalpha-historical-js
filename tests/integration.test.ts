@@ -23,7 +23,8 @@ const SPY_DATE = '2024-08-05';
 const EXPECTED_SPOT = 516.435;
 const SPOT_TOL = 1.0;
 
-const REGIMES = new Set(['positive_gamma', 'negative_gamma', 'transition']);
+const REGIMES = new Set(['positive_gamma', 'negative_gamma', 'neutral', 'undetermined']);
+// Summary and zero-dte both use lowercase buy/sell directions.
 const HEDGING_DIRECTIONS = new Set(['buy', 'sell']);
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -134,31 +135,58 @@ describeIntegration('integration: market data', () => {
 describeIntegration('integration: exposure', () => {
   const hx = mkClient();
 
-  test('exposure summary shape + invariants', async () => {
+  test('exposure summary — every field declared in ExposureSummaryResponse must be referenced', async () => {
     const s = (await hx.exposureSummary('SPY', { at: SPY_AT })) as {
       symbol: string;
       underlying_price: number;
+      as_of: string;
       regime: string;
       gamma_flip: number;
       exposures: { net_gex: number; net_dex: number; net_vex: number; net_chex: number };
       hedging_estimate: {
-        spot_up_1pct: { dealer_shares_to_trade: number; direction: string };
-        spot_down_1pct: { dealer_shares_to_trade: number; direction: string };
+        spot_up_1pct: { dealer_shares_to_trade: number; direction: string; notional_usd: number };
+        spot_down_1pct: { dealer_shares_to_trade: number; direction: string; notional_usd: number };
       };
       interpretation: { gamma: string; vanna: string; charm: string };
+      zero_dte: { net_gex: number | null; pct_of_total_gex: number | null; expiration: string | null };
     };
+    // ── top-level scalars ──
     expect(s.symbol).toBe('SPY');
+    expect(typeof s.underlying_price).toBe('number');
     expect(Math.abs(s.underlying_price - EXPECTED_SPOT)).toBeLessThan(SPOT_TOL);
+    expect(typeof s.as_of).toBe('string');
+    expect(s.as_of.length).toBeGreaterThan(0);
+    expect(s.as_of).toBe(SPY_AT);  // historical snaps to the requested minute
     expect(REGIMES.has(s.regime)).toBe(true);
     expect(typeof s.gamma_flip).toBe('number');
+    // ── exposures block (4 fields) ──
     for (const k of ['net_gex', 'net_dex', 'net_vex', 'net_chex'] as const) {
       expect(typeof s.exposures[k]).toBe('number');
     }
-    // Symmetric hedging estimate
-    expect(s.hedging_estimate.spot_up_1pct.dealer_shares_to_trade).toBe(
-      -s.hedging_estimate.spot_down_1pct.dealer_shares_to_trade,
-    );
-    expect(HEDGING_DIRECTIONS.has(s.hedging_estimate.spot_up_1pct.direction)).toBe(true);
+    // ── interpretation block (3 fields) ──
+    for (const k of ['gamma', 'vanna', 'charm'] as const) {
+      expect(typeof s.interpretation[k]).toBe('string');
+      expect(s.interpretation[k].length).toBeGreaterThan(0);
+    }
+    // ── hedging_estimate (every leaf field on both sides) ──
+    const up = s.hedging_estimate.spot_up_1pct;
+    const down = s.hedging_estimate.spot_down_1pct;
+    for (const side of [up, down]) {
+      expect(HEDGING_DIRECTIONS.has(side.direction)).toBe(true);
+      expect(typeof side.dealer_shares_to_trade).toBe('number');
+      expect(typeof side.notional_usd).toBe('number');
+      expect(side.notional_usd).not.toBe(0);
+    }
+    expect(up.dealer_shares_to_trade).toBe(-down.dealer_shares_to_trade);
+    expect(Math.abs(up.notional_usd)).toBe(Math.abs(down.notional_usd));
+    // ── zero_dte block (3 fields) ──
+    expect(s.zero_dte).toBeDefined();
+    expect('net_gex' in s.zero_dte).toBe(true);
+    expect(s.zero_dte.net_gex === null || typeof s.zero_dte.net_gex === 'number').toBe(true);
+    expect('pct_of_total_gex' in s.zero_dte).toBe(true);
+    expect(s.zero_dte.pct_of_total_gex === null || typeof s.zero_dte.pct_of_total_gex === 'number').toBe(true);
+    expect('expiration' in s.zero_dte).toBe(true);
+    expect(s.zero_dte.expiration === null || typeof s.zero_dte.expiration === 'string').toBe(true);
   });
 
   test('levels keys present', async () => {

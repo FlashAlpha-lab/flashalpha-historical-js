@@ -48,3 +48,12 @@ export type {
   ReplayResult,
   Strategy,
 } from './replay';
+
+export type {
+  ExposureSummaryExposures,
+  ExposureSummaryHedgingEstimate,
+  ExposureSummaryHedgingMove,
+  ExposureSummaryInterpretation,
+  ExposureSummaryResponse,
+  ExposureSummaryZeroDte,
+} from './types';
