@@ -56,4 +56,14 @@ export type {
   ExposureSummaryInterpretation,
   ExposureSummaryResponse,
   ExposureSummaryZeroDte,
+  // ── VRP ──
+  VrpResponse,
+  VrpCore,
+  VrpDirectional,
+  VrpTermItem,
+  VrpGexConditioned,
+  VrpVannaConditioned,
+  VrpRegime,
+  VrpStrategyScores,
+  VrpMacro,
 } from './types';
