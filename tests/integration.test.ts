@@ -360,22 +360,117 @@ describeIntegration('integration: surface', () => {
 describeIntegration('integration: vrp', () => {
   const hx = mkClient();
 
-  test('vrp dashboard keys; hy_spread documented hard-code', async () => {
+  test('vrp — every field declared in VrpResponse must be referenced', async () => {
+    type Macro = {
+      vix: number; vix_3m: number; vix_term_slope: number;
+      dgs10: number; hy_spread: number;
+    };
+    type Term = { dte: number; iv: number; rv: number; vrp: number };
+    type GexC = { regime: string; harvest_score: number; interpretation: string };
+    type VannaC = { outlook: string; interpretation: string };
+    type Reg = {
+      gamma: string; vrp_regime: string | null;
+      net_gex: number; gamma_flip: number;
+    };
+    type SS = {
+      short_put_spread: number | null; short_strangle: number | null;
+      iron_condor: number | null; calendar_spread: number | null;
+    };
+    type Core = Record<string, number | null>;
+
     const v = (await hx.vrp('SPY', { at: SPY_AT })) as {
-      vrp: Record<string, number | null>;
+      symbol: string;
+      underlying_price: number;
+      as_of: string;
+      market_open: boolean;
+      vrp: Core;
+      variance_risk_premium: number;
       convexity_premium: number;
       fair_vol: number;
-      macro: { hy_spread: number };
+      directional: Record<string, number>;
+      term_vrp: Term[];
+      gex_conditioned: GexC;
+      vanna_conditioned: VannaC;
+      regime: Reg;
+      strategy_scores: SS | null;
+      net_harvest_score: number | null;
+      dealer_flow_risk: number | null;
+      warnings: string[];
+      macro: Macro;
     };
+
+    // ── top-level scalars ──
+    expect(v.symbol).toBe('SPY');
+    expect(typeof v.underlying_price).toBe('number');
+    expect(typeof v.as_of).toBe('string');
+    expect(typeof v.market_open).toBe('boolean');
+    expect(typeof v.variance_risk_premium).toBe('number');
+    expect(typeof v.convexity_premium).toBe('number');
+    expect(typeof v.fair_vol).toBe('number');
+    expect(Array.isArray(v.warnings)).toBe(true);
+    // dealer_flow_risk: present (may be null on thin warmup)
+    expect('dealer_flow_risk' in v).toBe(true);
+    // net_harvest_score / strategy_scores nullable on historical
+    expect(v.net_harvest_score === null || typeof v.net_harvest_score === 'number').toBe(true);
+    if (v.strategy_scores !== null) {
+      for (const k of ['short_put_spread', 'short_strangle', 'iron_condor', 'calendar_spread'] as const) {
+        expect(v.strategy_scores[k] === null || typeof v.strategy_scores[k] === 'number').toBe(true);
+      }
+    }
+    // Customer trap: net_gex must NOT exist top-level
+    expect('net_gex' in v).toBe(false);
+
+    // ── vrp.* core block ──
     for (const k of [
       'atm_iv', 'rv_5d', 'rv_10d', 'rv_20d', 'rv_30d',
       'vrp_5d', 'vrp_10d', 'vrp_20d', 'vrp_30d',
     ]) {
-      expect(v.vrp).toHaveProperty(k);
+      expect(typeof v.vrp[k]).toBe('number');
     }
-    expect(typeof v.convexity_premium).toBe('number');
-    expect(typeof v.fair_vol).toBe('number');
-    expect(v.macro.hy_spread).toBe(3.5);
+    // z_score / percentile nullable on historical
+    expect(v.vrp.z_score === null || typeof v.vrp.z_score === 'number').toBe(true);
+    expect(v.vrp.percentile === null || typeof v.vrp.percentile === 'number').toBe(true);
+    expect(typeof v.vrp.history_days).toBe('number');
+
+    // ── directional ──
+    for (const k of ['put_wing_iv_25d', 'call_wing_iv_25d',
+                     'downside_rv_20d', 'upside_rv_20d',
+                     'downside_vrp', 'upside_vrp']) {
+      expect(typeof v.directional[k]).toBe('number');
+    }
+    // Customer-trap fields must NOT exist
+    expect('put_vrp' in v.directional).toBe(false);
+    expect('call_vrp' in v.directional).toBe(false);
+
+    // ── term_vrp[] ──
+    expect(Array.isArray(v.term_vrp)).toBe(true);
+    expect(v.term_vrp.length).toBeGreaterThan(0);
+    const first = v.term_vrp[0];
+    for (const k of ['dte', 'iv', 'rv', 'vrp'] as const) {
+      expect(typeof first[k]).toBe('number');
+    }
+
+    // ── gex_conditioned ──
+    expect(typeof v.gex_conditioned.regime).toBe('string');
+    expect(typeof v.gex_conditioned.harvest_score).toBe('number');
+    expect(typeof v.gex_conditioned.interpretation).toBe('string');
+
+    // ── vanna_conditioned ──
+    expect(typeof v.vanna_conditioned.outlook).toBe('string');
+    expect(typeof v.vanna_conditioned.interpretation).toBe('string');
+
+    // ── regime (net_gex lives HERE) ──
+    expect(typeof v.regime.gamma).toBe('string');
+    expect(v.regime.vrp_regime === null || typeof v.regime.vrp_regime === 'string').toBe(true);
+    expect(typeof v.regime.net_gex).toBe('number');
+    expect(typeof v.regime.gamma_flip).toBe('number');
+
+    // ── macro (historical-specific shape) ──
+    for (const k of ['vix', 'vix_3m', 'vix_term_slope', 'dgs10', 'hy_spread'] as const) {
+      expect(typeof v.macro[k]).toBe('number');
+    }
+    // fed_funds is live-only — must NOT be present on historical
+    expect('fed_funds' in v.macro).toBe(false);
   });
 });
 
