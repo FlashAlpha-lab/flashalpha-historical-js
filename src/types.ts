@@ -65,14 +65,13 @@ export interface ExposureSummaryResponse {
   // would be defensive — the field genuinely isn't returned for this endpoint.
   gamma_flip?: number | null;
   /**
-   * Confirmed live values in tests across Py/JS/.NET/Go/Java:
-   *   positive_gamma | negative_gamma | neutral
-   * Documented fourth value: undetermined (when there's no usable options
-   * data). `neutral` appears in edge cases where net_gex straddles zero.
-   * Don't conflate with `maxpain.signal` (also bullish/bearish/neutral but
+   * Confirmed values from server source:
+   *   positive_gamma | negative_gamma | unknown
+   * `unknown` is returned when there's no usable options data.
+   * Don't conflate with `maxpain.signal` (which is bullish/bearish/neutral —
    * a separate field).
    */
-  regime?: 'positive_gamma' | 'negative_gamma' | 'neutral' | 'undetermined';
+  regime?: 'positive_gamma' | 'negative_gamma' | 'unknown';
   exposures?: ExposureSummaryExposures;
   interpretation?: ExposureSummaryInterpretation;
   hedging_estimate?: ExposureSummaryHedgingEstimate;
@@ -424,7 +423,7 @@ export interface MaxPainResponse {
   max_pain_by_expiration?: MaxPainByExpirationRow[] | null;
   dealer_alignment?: MaxPainDealerAlignment;
   /** Same classifier as `exposure_summary.regime`. */
-  regime?: 'positive_gamma' | 'negative_gamma' | 'neutral' | 'undetermined' | null;
+  regime?: 'positive_gamma' | 'negative_gamma' | 'unknown' | null;
   expected_move?: MaxPainExpectedMove;
   /**
    * 0-100 composite — likelihood of pinning to `max_pain_strike`. Inputs:
@@ -604,9 +603,9 @@ export interface StockSummaryExposure {
   /**
    * `'positive_gamma'` = dealers long gamma (mean-reverting tape).
    * `'negative_gamma'` = dealers short gamma (trend-amplifying tape).
-   * `'undetermined'` = insufficient data.
+   * `'unknown'` = insufficient data.
    */
-  regime?: 'positive_gamma' | 'negative_gamma' | 'undetermined' | null;
+  regime?: 'positive_gamma' | 'negative_gamma' | 'unknown' | null;
   /** Plain-English interpretation. */
   interpretation?: StockSummaryInterpretation;
   /** Hedging estimate for ±1% spot moves. */
