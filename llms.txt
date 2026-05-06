@@ -1,0 +1,126 @@
+# flashalpha-historical (JavaScript / TypeScript SDK)
+
+> Official Node.js SDK for the FlashAlpha Historical API —
+> point-in-time replay of every live analytics endpoint back to
+> **2018-04-16**, in the same response shape as the live API. Includes
+> a built-in backtester with NYSE holiday calendar (2018-2026) and
+> async iterators over date / minute ranges. Node 18+, zero deps.
+
+## What FlashAlpha Historical is
+
+The Historical API mirrors every analytics endpoint on the live
+[FlashAlpha](https://flashalpha.com) API but takes an extra `at=`
+parameter. Ask "what did SPY's gamma flip / VRP / max pain / 0DTE pin
+risk / full stock summary look like at 2020-03-16T15:30 ET?" and get
+back the exact same JSON shape as the live endpoint, replayed from
+the historical options-and-greeks dataset.
+
+Use cases:
+
+- **Backtesting** options strategies that depend on dealer
+  positioning (GEX regime, VRP harvest score, 0DTE pin probability).
+- **Event studies** — what did dealer positioning look like the
+  morning of a Fed announcement, CPI print, or earnings event?
+- **Training data generation** for ML models keyed on options-flow
+  features.
+- **Replay-driven UI demos** — scrub a chart's positioning panel
+  back through time without standing up your own time-series store.
+
+## What this SDK provides
+
+A single `FlashAlphaHistorical` client class wrapping every analytics
+endpoint, plus replay utilities:
+
+- TypeScript interfaces for the major response shapes (rich JSDoc on
+  load-bearing fields — same shapes as the live SDK)
+- `Backtester` class for evaluating a strategy callback over a date
+  range against any one endpoint
+- `iterDays(start, end)`, `iterMinutes(start, end, {stepMinutes})`,
+  `isTradingDay(date)` — NYSE-aware async iterators
+- `replay(client, method, symbol, iterator)` — generic
+  AsyncGenerator yielding `{at, response}` for any endpoint
+- typed errors (`AuthenticationError`, `TierRestrictedError`,
+  `RateLimitError`, `NoCoverageError`, `NoDataError`,
+  `InsufficientDataError`, `InvalidAtError`, `SymbolNotFoundError`,
+  `ServerError`, `FlashAlphaHistoricalError`)
+- Node-native `fetch` and `AbortController`
+
+Quick start:
+
+```ts
+import { FlashAlphaHistorical } from 'flashalpha-historical';
+
+const hx = new FlashAlphaHistorical(process.env.FLASHALPHA_API_KEY!);
+
+// What did SPY's dealer positioning look like at the COVID-crash close?
+const snap = await hx.exposureSummary('SPY', { at: '2020-03-16T15:30:00' });
+console.log(snap.regime, snap.gamma_flip);
+```
+
+The `at` argument accepts:
+
+- `'2026-03-05T15:30:00'` — minute-level
+- `'2026-03-05'` — date-only, defaults to 16:00 ET (close)
+- `Date` instances — formatted using the local clock (ET assumed)
+
+## Key endpoints
+
+Same as the live API (every endpoint also requires `at`):
+
+- `stockSummary(symbol, {at})` — single best snapshot (price + IV +
+  HV + VRP + skew + term structure + flow + full exposure + macro).
+- `exposureSummary(symbol, {at})` — regime, GEX/DEX/VEX/CHEX, gamma
+  flip, walls, hedging estimate.
+- `exposureLevels(symbol, {at})` — just the key support/resistance
+  strikes (gamma flip, walls, max pos/neg gamma, highest OI, 0DTE
+  magnet).
+- `narrative(symbol, {at})` — LLM-friendly verbal output of the
+  exposure block.
+- `zeroDte(symbol, {at})` — full 0DTE dashboard.
+- `vrp(symbol, {at})` — variance risk premium dashboard.
+- `maxPain(symbol, {at})` — max pain strike, pain curve, dealer
+  alignment, pin probability.
+- `gex` / `dex` / `vex` / `chex` — exposure curves by strike.
+
+Replay:
+
+```ts
+import { iterMinutes, replay } from 'flashalpha-historical';
+
+for await (const { at, response } of replay(
+  hx,
+  'exposureSummary',
+  'SPY',
+  iterMinutes('2025-01-15', '2025-01-15', { stepMinutes: 15 }),
+)) {
+  console.log(at, response.regime, response.underlying_price);
+}
+```
+
+## Coverage and snapping
+
+- Coverage starts **2018-04-16**.
+- Every analytic snaps `at` to the nearest available minute on or
+  before the request — always inspect `as_of` on the response to
+  confirm the snap.
+- NYSE holidays and weekends are skipped silently by `iterDays` /
+  `iterMinutes` / `Backtester`.
+- Quota: every call counts against the daily plan quota (shared with
+  live). A 1-minute replay = 390 calls per analytic per day; use
+  `stepMinutes` aggressively in development.
+
+## Try without writing code
+
+- Interactive playground (Swagger UI): https://lab.flashalpha.com/swagger
+- Sign up for an API key: https://flashalpha.com
+
+## Tiers
+
+The Historical API requires **Alpha plan or higher** on every endpoint
+(it's a power-user product). See https://flashalpha.com for tier
+comparison and pricing.
+
+## Companion SDKs
+
+- `flashalpha` — the live SDK with the same client surface, no `at=`.
+- Python, .NET, Java, Go SDKs at https://github.com/FlashAlpha-lab.
