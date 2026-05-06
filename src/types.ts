@@ -287,3 +287,149 @@ export interface VrpResponse {
   /** Macro context. See {@link VrpMacro}. */
   macro?: VrpMacro;
 }
+
+
+// ─── MaxPain ─────────────────────────────────────────────────────────────────
+//
+// Typed model for `GET /v1/maxpain/{symbol}?at=...` (Basic+).
+//
+// Same shape as the live API, with one operational difference:
+// `oi_by_strike[].call_volume` and `put_volume` are always `0` on historical
+// (the minute-resolution options table doesn't carry intraday volume).
+
+
+/** Distance from spot to the max-pain strike. */
+export interface MaxPainDistance {
+  /** Dollar distance: `|underlying_price - max_pain_strike|`. */
+  absolute?: number | null;
+  /** Percent of spot: `absolute / underlying_price * 100`. */
+  percent?: number | null;
+  /** Spot relative to max-pain. */
+  direction?: 'above' | 'below' | 'at' | null;
+}
+
+/**
+ * One row of the strike-by-strike pain curve.
+ *
+ * Each row is the dollar pain (intrinsic value × OI × 100 contract
+ * multiplier) summed across all expirations at that strike. The strike
+ * where `total_pain` is minimized is the max-pain strike.
+ */
+export interface MaxPainCurveRow {
+  strike?: number | null;
+  /** Dollar intrinsic value of all calls at this strike summed across the chain. */
+  call_pain?: number | null;
+  /** Dollar intrinsic value of all puts at this strike. */
+  put_pain?: number | null;
+  /** `call_pain + put_pain`. The pain curve's minimum identifies max pain. */
+  total_pain?: number | null;
+}
+
+/**
+ * One row of the OI-by-strike breakdown.
+ *
+ * Note: on the Historical API, `call_volume` and `put_volume` are always
+ * `0` (placeholder fields — the minute table doesn't carry intraday volume).
+ */
+export interface MaxPainOiRow {
+  strike?: number | null;
+  call_oi?: number | null;
+  put_oi?: number | null;
+  total_oi?: number | null;
+  call_volume?: number | null;
+  put_volume?: number | null;
+}
+
+/**
+ * Per-expiry max-pain breakdown when no `expiration` filter is applied.
+ *
+ * `null` when the request specified an expiration filter — the response
+ * is then scoped to that single expiry and the multi-expiry view is
+ * suppressed.
+ */
+export interface MaxPainByExpirationRow {
+  expiration?: string | null;
+  max_pain_strike?: number | null;
+  /** Days to expiry (counting from `as_of`). */
+  dte?: number | null;
+  total_oi?: number | null;
+}
+
+/**
+ * GEX-based dealer-alignment overlay on the max-pain view.
+ *
+ * The headline `alignment` label tells you whether dealer hedging will
+ * REINFORCE the max-pain pin or fight it.
+ */
+export interface MaxPainDealerAlignment {
+  /**
+   * - `"converging"`: max pain near gamma flip and between walls — strongest pin.
+   * - `"moderate"`: between walls but far from flip.
+   * - `"diverging"`: max pain outside the wall range.
+   * - `"unknown"`: insufficient data.
+   */
+  alignment?: 'converging' | 'moderate' | 'diverging' | 'unknown' | null;
+  /** Plain-English explanation. Safe to surface verbatim. */
+  description?: string | null;
+  /** Strike where net dealer gamma crosses zero. */
+  gamma_flip?: number | null;
+  /** Strike with highest absolute call GEX (dealer-side resistance). */
+  call_wall?: number | null;
+  /** Strike with highest absolute put GEX (dealer-side support). */
+  put_wall?: number | null;
+}
+
+/** Implied move from the ATM straddle, contextualized vs max pain. */
+export interface MaxPainExpectedMove {
+  /** ATM straddle mid in dollars. Rough proxy for the 1σ implied move. */
+  straddle_price?: number | null;
+  /** ATM implied volatility (annualised %, e.g. 18.5 = 18.5%). */
+  atm_iv?: number | null;
+  /** `true` when `|spot - max_pain_strike| <= straddle_price`. */
+  max_pain_within_expected_range?: boolean | null;
+}
+
+/**
+ * Max pain dashboard from `GET /v1/maxpain/{symbol}` (Basic+).
+ *
+ * Returns the strike where total option-holder pain is minimized, plus
+ * per-strike pain curve, OI breakdown, per-expiry calendar (when no
+ * `expiration` filter), GEX-based dealer alignment, expected move from
+ * the ATM straddle, and a 0-100 pin probability composite.
+ */
+export interface MaxPainResponse {
+  symbol?: string;
+  underlying_price?: number | null;
+  as_of?: string;
+  /** Strike where total chain pain is minimized. */
+  max_pain_strike?: number | null;
+  distance?: MaxPainDistance;
+  /**
+   * - `"bullish"`: spot >= 5% below max_pain (pin attracts upside).
+   * - `"bearish"`: spot >= 5% above.
+   * - `"neutral"`: within 5%.
+   */
+  signal?: 'bullish' | 'bearish' | 'neutral' | null;
+  /**
+   * Expiration this view is scoped to. When the request omits the
+   * `expiration` filter, this is the front-month expiry the full-chain
+   * max-pain happened to land on.
+   */
+  expiration?: string | null;
+  /** Total put OI / total call OI across the relevant chain. >1.0 = put-heavy. */
+  put_call_oi_ratio?: number | null;
+  pain_curve?: MaxPainCurveRow[];
+  oi_by_strike?: MaxPainOiRow[];
+  /** `null` when the request specified an `expiration` filter. */
+  max_pain_by_expiration?: MaxPainByExpirationRow[] | null;
+  dealer_alignment?: MaxPainDealerAlignment;
+  /** Same classifier as `exposure_summary.regime`. */
+  regime?: 'positive_gamma' | 'negative_gamma' | 'neutral' | 'undetermined' | null;
+  expected_move?: MaxPainExpectedMove;
+  /**
+   * 0-100 composite — likelihood of pinning to `max_pain_strike`. Inputs:
+   * OI concentration (30%), magnet proximity (25%), time remaining (25%),
+   * gamma magnitude (20%). Most meaningful for near-term expiries.
+   */
+  pin_probability?: number | null;
+}

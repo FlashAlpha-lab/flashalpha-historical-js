@@ -66,4 +66,12 @@ export type {
   VrpRegime,
   VrpStrategyScores,
   VrpMacro,
+  // ── MaxPain ──
+  MaxPainResponse,
+  MaxPainDistance,
+  MaxPainCurveRow,
+  MaxPainOiRow,
+  MaxPainByExpirationRow,
+  MaxPainDealerAlignment,
+  MaxPainExpectedMove,
 } from './types';
