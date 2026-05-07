@@ -101,4 +101,20 @@ export type {
   // ── ExposureLevels ──
   ExposureLevelsResponse,
   ExposureLevels,
+  // ── ZeroDte ──
+  ZeroDteResponse,
+  ZeroDteRegime,
+  ZeroDteExposures,
+  ZeroDteExpectedMove,
+  ZeroDtePinComponents,
+  ZeroDtePinRisk,
+  ZeroDteHedgingBucket,
+  ZeroDteHedging,
+  ZeroDteDecay,
+  ZeroDteVolContext,
+  ZeroDteFlow,
+  ZeroDteLevels,
+  ZeroDteLiquidity,
+  ZeroDteMetadata,
+  ZeroDteStrike,
 } from './types';

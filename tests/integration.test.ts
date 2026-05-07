@@ -23,7 +23,7 @@ const SPY_DATE = '2024-08-05';
 const EXPECTED_SPOT = 516.435;
 const SPOT_TOL = 1.0;
 
-const REGIMES = new Set(['positive_gamma', 'negative_gamma', 'neutral', 'undetermined']);
+const REGIMES = new Set(['positive_gamma', 'negative_gamma', 'unknown']);
 // Summary and zero-dte both use lowercase buy/sell directions.
 const HEDGING_DIRECTIONS = new Set(['buy', 'sell']);
 
@@ -530,7 +530,7 @@ describeIntegration('integration: max pain', () => {
     expect(['bullish', 'bearish', 'neutral']).toContain(r.signal);
     expect(typeof r.expiration).toBe('string');
     expect(typeof r.put_call_oi_ratio).toBe('number');
-    expect(['positive_gamma', 'negative_gamma', 'neutral', 'undetermined']).toContain(r.regime);
+    expect(['positive_gamma', 'negative_gamma', 'unknown']).toContain(r.regime);
     expect(typeof r.pin_probability).toBe('number');
     expect(r.pin_probability).toBeGreaterThanOrEqual(0);
     expect(r.pin_probability).toBeLessThanOrEqual(100);
@@ -688,4 +688,213 @@ describeIntegration('integration: replay & backtester', () => {
       expect(records[0]).toHaveProperty(k);
     }
   }, 60_000);
+});
+
+// ── rc.4 POCO field-walk coverage ───────────────────────────────────────────
+// For each interface added in rc.4, walk every documented top-level (and
+// selected nested) field and assert it is present on the response.
+// TypeScript interfaces are erased at runtime, so the field list is
+// hand-mirrored from src/types.ts — keep these in sync if the interface
+// shape changes. Historical doesn't expose `greeks()` so that test lives
+// only in the live SDK.
+
+describeIntegration('integration: rc.4 POCO field-walks', () => {
+  const hx = mkClient();
+
+  test('stockSummary — every field declared in StockSummaryResponse must be referenced', async () => {
+    const r = (await hx.stockSummary('SPY', { at: SPY_AT })) as Record<string, unknown> & {
+      symbol: string;
+      as_of: string;
+      market_open: boolean;
+      price: Record<string, unknown>;
+      volatility: Record<string, unknown> & {
+        skew_25d: Record<string, unknown> | null;
+        iv_term_structure: unknown[];
+      };
+      options_flow: Record<string, unknown>;
+      exposure: (Record<string, unknown> & {
+        interpretation: Record<string, unknown>;
+        hedging_estimate: {
+          spot_up_1pct: Record<string, unknown>;
+          spot_down_1pct: Record<string, unknown>;
+        };
+        zero_dte: Record<string, unknown> | null;
+        top_strikes: unknown[];
+      }) | null;
+      macro: Record<string, unknown> & {
+        vix: Record<string, unknown> | null;
+        vvix: Record<string, unknown> | null;
+        skew: Record<string, unknown> | null;
+        spx: Record<string, unknown> | null;
+        move: Record<string, unknown> | null;
+        vix_term_structure: (Record<string, unknown> & { levels: Record<string, unknown> }) | null;
+        vix_futures: Record<string, unknown> | null;
+        fear_and_greed: Record<string, unknown> | null;
+      };
+    };
+
+    // ── top-level scalars ──
+    for (const k of ['symbol', 'as_of', 'market_open', 'price', 'volatility',
+                     'options_flow', 'exposure', 'macro']) {
+      expect(r).toHaveProperty(k);
+    }
+    expect(r.symbol).toBe('SPY');
+    expect(typeof r.as_of).toBe('string');
+
+    // ── price (5 fields) ──
+    for (const k of ['bid', 'ask', 'mid', 'last', 'last_update']) {
+      expect(r.price).toHaveProperty(k);
+    }
+
+    // ── volatility (6 top fields + skew_25d sub + iv_term_structure[]) ──
+    for (const k of ['atm_iv', 'hv_20', 'hv_60', 'vrp', 'skew_25d', 'iv_term_structure']) {
+      expect(r.volatility).toHaveProperty(k);
+    }
+    if (r.volatility.skew_25d) {
+      for (const k of ['expiry', 'days_to_expiry', 'put_25d_iv', 'atm_iv',
+                       'call_25d_iv', 'skew_25d', 'smile_ratio']) {
+        expect(r.volatility.skew_25d).toHaveProperty(k);
+      }
+    }
+    expect(Array.isArray(r.volatility.iv_term_structure)).toBe(true);
+    if (r.volatility.iv_term_structure.length > 0) {
+      const node = r.volatility.iv_term_structure[0] as Record<string, unknown>;
+      for (const k of ['expiry', 'iv', 'days_to_expiry']) {
+        expect(node).toHaveProperty(k);
+      }
+    }
+
+    // ── options_flow (7 fields) ──
+    for (const k of ['total_call_oi', 'total_put_oi', 'total_call_volume',
+                     'total_put_volume', 'pc_ratio_oi', 'pc_ratio_volume',
+                     'active_expirations']) {
+      expect(r.options_flow).toHaveProperty(k);
+    }
+
+    // ── exposure (skip walk if exposure is null) ──
+    if (r.exposure) {
+      for (const k of ['net_gex', 'net_dex', 'net_vex', 'net_chex',
+                       'gamma_flip', 'call_wall', 'put_wall', 'max_pain',
+                       'highest_oi_strike', 'regime', 'interpretation',
+                       'hedging_estimate', 'zero_dte', 'top_strikes',
+                       'oi_weighted_dte']) {
+        expect(r.exposure).toHaveProperty(k);
+      }
+      for (const k of ['gamma', 'vanna', 'charm']) {
+        expect(r.exposure.interpretation).toHaveProperty(k);
+      }
+      for (const side of [r.exposure.hedging_estimate.spot_up_1pct,
+                          r.exposure.hedging_estimate.spot_down_1pct]) {
+        for (const k of ['dealer_shares', 'direction', 'notional_usd']) {
+          expect(side).toHaveProperty(k);
+        }
+      }
+      if (r.exposure.zero_dte) {
+        for (const k of ['net_gex', 'pct_of_total', 'expiration']) {
+          expect(r.exposure.zero_dte).toHaveProperty(k);
+        }
+      }
+      expect(Array.isArray(r.exposure.top_strikes)).toBe(true);
+      if (r.exposure.top_strikes.length > 0) {
+        const ts = r.exposure.top_strikes[0] as Record<string, unknown>;
+        for (const k of ['strike', 'net_gex', 'call_oi', 'put_oi', 'total_oi']) {
+          expect(ts).toHaveProperty(k);
+        }
+      }
+    }
+
+    // ── macro (8 sub-blocks) ──
+    for (const k of ['vix', 'vvix', 'skew', 'spx', 'move',
+                     'vix_term_structure', 'vix_futures', 'fear_and_greed']) {
+      expect(r.macro).toHaveProperty(k);
+    }
+    for (const idx of [r.macro.vix, r.macro.vvix, r.macro.skew, r.macro.spx, r.macro.move]) {
+      if (idx) {
+        for (const k of ['value', 'change', 'change_pct']) {
+          expect(idx).toHaveProperty(k);
+        }
+      }
+    }
+    if (r.macro.vix_term_structure) {
+      for (const k of ['levels', 'near_slope_pct', 'structure']) {
+        expect(r.macro.vix_term_structure).toHaveProperty(k);
+      }
+      for (const k of ['vix9d', 'vix', 'vix3m', 'vix6m']) {
+        expect(r.macro.vix_term_structure.levels).toHaveProperty(k);
+      }
+    }
+    if (r.macro.vix_futures) {
+      for (const k of ['front_month', 'spot', 'spread', 'basis_pct', 'basis']) {
+        expect(r.macro.vix_futures).toHaveProperty(k);
+      }
+    }
+    if (r.macro.fear_and_greed) {
+      for (const k of ['score', 'rating']) {
+        expect(r.macro.fear_and_greed).toHaveProperty(k);
+      }
+    }
+  });
+
+  test('narrative — every field declared in NarrativeResponse must be referenced', async () => {
+    const r = (await hx.narrative('SPY', { at: SPY_AT })) as Record<string, unknown> & {
+      symbol: string;
+      underlying_price: number;
+      as_of: string;
+      narrative: Record<string, unknown> & {
+        data: Record<string, unknown> & { top_oi_changes: unknown[] };
+      };
+    };
+
+    // ── top-level scalars ──
+    for (const k of ['symbol', 'underlying_price', 'as_of', 'narrative']) {
+      expect(r).toHaveProperty(k);
+    }
+    expect(r.symbol).toBe('SPY');
+    expect(typeof r.as_of).toBe('string');
+    expect(r.underlying_price === null || typeof r.underlying_price === 'number').toBe(true);
+
+    // ── narrative.* (8 string blocks + data) ──
+    for (const k of ['regime', 'gex_change', 'key_levels', 'flow', 'vanna',
+                     'charm', 'zero_dte', 'outlook', 'data']) {
+      expect(r.narrative).toHaveProperty(k);
+    }
+
+    // ── narrative.data (10 fields including top_oi_changes[]) ──
+    for (const k of ['net_gex', 'net_gex_prior', 'net_gex_change_pct', 'vix',
+                     'gamma_flip', 'call_wall', 'put_wall', 'regime',
+                     'zero_dte_pct', 'top_oi_changes']) {
+      expect(r.narrative.data).toHaveProperty(k);
+    }
+    expect(Array.isArray(r.narrative.data.top_oi_changes)).toBe(true);
+    if (r.narrative.data.top_oi_changes.length > 0) {
+      const row = r.narrative.data.top_oi_changes[0] as Record<string, unknown>;
+      for (const k of ['strike', 'type', 'oi_change', 'volume']) {
+        expect(row).toHaveProperty(k);
+      }
+    }
+  });
+
+  test('exposureLevels — every field declared in ExposureLevelsResponse must be referenced', async () => {
+    const r = (await hx.exposureLevels('SPY', { at: SPY_AT })) as Record<string, unknown> & {
+      symbol: string;
+      underlying_price: number;
+      as_of: string;
+      levels: Record<string, unknown>;
+    };
+
+    // ── top-level (4 fields) ──
+    for (const k of ['symbol', 'underlying_price', 'as_of', 'levels']) {
+      expect(r).toHaveProperty(k);
+    }
+    expect(r.symbol).toBe('SPY');
+    expect(typeof r.as_of).toBe('string');
+    expect(r.underlying_price === null || typeof r.underlying_price === 'number').toBe(true);
+
+    // ── levels (all 7 fields including zero_dte_magnet) ──
+    for (const k of ['gamma_flip', 'max_positive_gamma', 'max_negative_gamma',
+                     'call_wall', 'put_wall', 'highest_oi_strike',
+                     'zero_dte_magnet']) {
+      expect(r.levels).toHaveProperty(k);
+    }
+  });
 });
