@@ -23,6 +23,15 @@ import {
   SymbolNotFoundError,
   TierRestrictedError,
 } from './errors';
+import type {
+  ExposureLevelsResponse,
+  ExposureSummaryResponse,
+  MaxPainResponse,
+  NarrativeResponse,
+  StockSummaryResponse,
+  VrpResponse,
+  ZeroDteResponse,
+} from './types';
 
 export const BASE_URL = 'https://historical.flashalpha.com';
 const DEFAULT_TIMEOUT = 60_000;
@@ -301,22 +310,22 @@ export class FlashAlphaHistorical {
     return this._get(`/v1/exposure/chex/${_seg(symbol)}`, params);
   }
 
-  async exposureSummary(symbol: string, options: AtOptions): Promise<unknown> {
+  async exposureSummary(symbol: string, options: AtOptions): Promise<ExposureSummaryResponse> {
     return this._get(`/v1/exposure/summary/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<ExposureSummaryResponse>;
   }
 
-  async exposureLevels(symbol: string, options: AtOptions): Promise<unknown> {
+  async exposureLevels(symbol: string, options: AtOptions): Promise<ExposureLevelsResponse> {
     return this._get(`/v1/exposure/levels/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<ExposureLevelsResponse>;
   }
 
-  async narrative(symbol: string, options: AtOptions): Promise<unknown> {
+  async narrative(symbol: string, options: AtOptions): Promise<NarrativeResponse> {
     return this._get(`/v1/exposure/narrative/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<NarrativeResponse>;
   }
 
   /**
@@ -325,31 +334,31 @@ export class FlashAlphaHistorical {
    * minute-accurate. Note: intraday 0DTE greeks may arrive as 0 / null for
    * very-near-expiry contracts at minute resolution.
    */
-  async zeroDte(symbol: string, options: ZeroDteOptions): Promise<unknown> {
+  async zeroDte(symbol: string, options: ZeroDteOptions): Promise<ZeroDteResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.strikeRange !== undefined)
       params['strike_range'] = options.strikeRange;
-    return this._get(`/v1/exposure/zero-dte/${_seg(symbol)}`, params);
+    return this._get(`/v1/exposure/zero-dte/${_seg(symbol)}`, params) as Promise<ZeroDteResponse>;
   }
 
   // ── Max Pain ────────────────────────────────────────────────────────────────
 
-  async maxPain(symbol: string, options: MaxPainOptions): Promise<unknown> {
+  async maxPain(symbol: string, options: MaxPainOptions): Promise<MaxPainResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.expiration) params['expiration'] = options.expiration;
-    return this._get(`/v1/maxpain/${_seg(symbol)}`, params);
+    return this._get(`/v1/maxpain/${_seg(symbol)}`, params) as Promise<MaxPainResponse>;
   }
 
   // ── Stock Summary (composite) ──────────────────────────────────────────────
 
-  async stockSummary(symbol: string, options: AtOptions): Promise<unknown> {
+  async stockSummary(symbol: string, options: AtOptions): Promise<StockSummaryResponse> {
     return this._get(`/v1/stock/${_seg(symbol)}/summary`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<StockSummaryResponse>;
   }
 
   // ── Volatility ──────────────────────────────────────────────────────────────
@@ -374,9 +383,9 @@ export class FlashAlphaHistorical {
    * so percentiles reflect what was knowable at that moment (no future
    * leakage).
    */
-  async vrp(symbol: string, options: AtOptions): Promise<unknown> {
+  async vrp(symbol: string, options: AtOptions): Promise<VrpResponse> {
     return this._get(`/v1/vrp/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<VrpResponse>;
   }
 }
