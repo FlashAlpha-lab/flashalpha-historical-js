@@ -1092,3 +1092,536 @@ export interface ZeroDteResponse {
   message?: string;
   next_zero_dte_expiry?: string | null;
 }
+
+
+// ─── Volatility ──────────────────────────────────────────────────────────────
+//
+// Typed model for `GET /v1/volatility/{symbol}` (Growth+).
+//
+// Comprehensive vol dashboard — realized vol at five horizons, ATM IV, the
+// IV-RV spread (variance risk premium), per-expiry skew profiles, term
+// structure with regime label, IV dispersion stats, GEX-by-DTE and
+// theta-by-DTE buckets, the put/call profile (by-expiry and by-moneyness),
+// OI concentration metrics, hedging scenarios, and a liquidity block.
+
+/** Realized volatility at canonical horizons (annualised %). */
+export interface VolatilityRealizedVol {
+  /** Realized vol over trailing 5 trading days. */
+  rv_5d?: number | null;
+  /** Realized vol over trailing 10 trading days. */
+  rv_10d?: number | null;
+  /** Realized vol over trailing 20 trading days. */
+  rv_20d?: number | null;
+  /** Realized vol over trailing 30 trading days. */
+  rv_30d?: number | null;
+  /** Realized vol over trailing 60 trading days. */
+  rv_60d?: number | null;
+}
+
+/**
+ * IV-RV spread (variance risk premium) at multiple horizons, plus a verbal
+ * `assessment` label. Each `vrp_Nd` is `atm_iv - rv_Nd`.
+ */
+export interface VolatilityIvRvSpreads {
+  vrp_5d?: number | null;
+  vrp_10d?: number | null;
+  vrp_20d?: number | null;
+  vrp_30d?: number | null;
+  /** Plain-English assessment ("rich", "fair", "cheap", etc.). */
+  assessment?: string | null;
+}
+
+/**
+ * Per-expiry skew profile — 10/25-delta wing IVs, ATM IV, the 25-delta
+ * skew, the smile ratio, and a tail-convexity statistic.
+ */
+export interface VolatilitySkewProfile {
+  /** Expiry date (YYYY-MM-DD). */
+  expiry?: string | null;
+  /** Calendar days to this expiry. */
+  days_to_expiry?: number | null;
+  /** 10-delta put IV (annualised %). */
+  put_10d_iv?: number | null;
+  /** 25-delta put IV (annualised %). */
+  put_25d_iv?: number | null;
+  /** ATM IV (annualised %). */
+  atm_iv?: number | null;
+  /** 25-delta call IV (annualised %). */
+  call_25d_iv?: number | null;
+  /** 10-delta call IV (annualised %). */
+  call_10d_iv?: number | null;
+  /** `put_25d_iv - call_25d_iv`. Positive = downside-skewed. */
+  skew_25d?: number | null;
+  /** `(put_25d_iv + call_25d_iv) / 2 / atm_iv`. */
+  smile_ratio?: number | null;
+  /** Tail-convexity statistic from the 10d wings. */
+  tail_convexity?: number | null;
+}
+
+/**
+ * IV term structure summary — slope of the near and far portions of the
+ * ATM-IV curve, plus a regime classification.
+ */
+export interface VolatilityTermStructure {
+  /** Slope of the near (front) portion of the ATM-IV curve, in percent. */
+  near_slope_pct?: number | null;
+  /** Slope of the far (back) portion of the ATM-IV curve, in percent. */
+  far_slope_pct?: number | null;
+  /** `'contango'` | `'backwardation'` | `'flat'` | `'mixed'` | etc. */
+  state?: string | null;
+}
+
+/** Cross-sectional IV dispersion across expiries and strikes. */
+export interface VolatilityIvDispersion {
+  /** Standard deviation of ATM-IV across listed expiries. */
+  cross_expiry?: number | null;
+  /** Standard deviation of IV across strikes (typically front expiry). */
+  cross_strike?: number | null;
+}
+
+/** One bucket of the GEX-by-DTE curve. */
+export interface VolatilityGexBucket {
+  /** Bucket label (e.g. "0-7d", "8-30d"). */
+  bucket?: string | null;
+  /** Net dealer GEX in this DTE bucket. */
+  net_gex?: number | null;
+  /** Share of total absolute chain GEX (0-100). */
+  pct_of_total?: number | null;
+  /** Number of contracts contributing to this bucket. */
+  contract_count?: number | null;
+}
+
+/** One bucket of the theta-by-DTE curve. */
+export interface VolatilityThetaBucket {
+  bucket?: string | null;
+  /** Net dealer theta in this DTE bucket. */
+  net_theta?: number | null;
+  contract_count?: number | null;
+}
+
+/** Per-expiry put/call OI and volume breakdown. */
+export interface VolatilityPutCallByExpiry {
+  expiry?: string | null;
+  call_oi?: number | null;
+  put_oi?: number | null;
+  /** `put_oi / call_oi`. */
+  pc_ratio_oi?: number | null;
+  call_volume?: number | null;
+  put_volume?: number | null;
+  /** `put_volume / call_volume`. */
+  pc_ratio_volume?: number | null;
+}
+
+/**
+ * Put/call OI grouped by moneyness bucket (OTM / ATM / ITM × call / put).
+ * Useful for spotting skewed positioning at a glance.
+ */
+export interface VolatilityPutCallByMoneyness {
+  otm_call_oi?: number | null;
+  atm_call_oi?: number | null;
+  itm_call_oi?: number | null;
+  otm_put_oi?: number | null;
+  atm_put_oi?: number | null;
+  itm_put_oi?: number | null;
+}
+
+/** Put/call profile container — by-expiry array plus by-moneyness object. */
+export interface VolatilityPutCallProfile {
+  by_expiry?: VolatilityPutCallByExpiry[];
+  by_moneyness?: VolatilityPutCallByMoneyness;
+}
+
+/** OI concentration metrics — top-N share and the Herfindahl index. */
+export interface VolatilityOiConcentration {
+  /** Top-3-strike share of total OI (0-100). */
+  top_3_pct?: number | null;
+  /** Top-5-strike share of total OI. */
+  top_5_pct?: number | null;
+  /** Top-10-strike share of total OI. */
+  top_10_pct?: number | null;
+  /** Herfindahl-Hirschman index (sum of squared shares). */
+  herfindahl?: number | null;
+}
+
+/**
+ * Per-scenario hedging estimate row.
+ *
+ * `dealer_shares` is the MAGNITUDE — combine with `direction` (`'buy'` or
+ * `'sell'`) to reconstruct the signed flow. `notional_usd = dealer_shares *
+ * spot`.
+ */
+export interface VolatilityHedgingScenario {
+  /** Hypothetical spot move as a fraction (e.g. 0.01 = +1%). */
+  move_pct?: number | null;
+  /** Magnitude of dealer shares to trade (always >= 0). */
+  dealer_shares?: number | null;
+  /** `'buy'` = dealers must buy; `'sell'` = dealers must sell. */
+  direction?: 'buy' | 'sell' | null;
+  /** `dealer_shares * spot`, in USD. */
+  notional_usd?: number | null;
+}
+
+/** Liquidity stats — ATM vs wing average bid-ask spreads and contract counts. */
+export interface VolatilityLiquidity {
+  /** Average ATM bid-ask spread as a percentage of mid. */
+  atm_avg_spread_pct?: number | null;
+  /** Average wing bid-ask spread as a percentage of mid. */
+  wing_avg_spread_pct?: number | null;
+  /** Count of contracts classified ATM. */
+  atm_contracts?: number | null;
+  /** Count of contracts classified wing. */
+  wing_contracts?: number | null;
+}
+
+/**
+ * Comprehensive volatility dashboard from `GET /v1/volatility/{symbol}` (Growth+).
+ *
+ * Bundles realized-vol at five horizons, ATM IV, the IV-RV spread (VRP),
+ * per-expiry skew profiles, term-structure slope/state, IV dispersion,
+ * GEX/theta-by-DTE buckets, the put/call profile (by-expiry and
+ * by-moneyness), OI concentration, hedging scenarios, and a liquidity
+ * block.
+ */
+export interface VolatilityResponse {
+  /** Echoed from the request path (e.g. "SPY"). */
+  symbol?: string;
+  /** Spot mid at `as_of`. */
+  underlying_price?: number | null;
+  /** ET wall-clock timestamp this snapshot was computed for. */
+  as_of?: string;
+  /** True if NYSE was open at `as_of`. */
+  market_open?: boolean | null;
+  /** Realized volatility at canonical horizons. */
+  realized_vol?: VolatilityRealizedVol;
+  /** ATM implied volatility (annualised %). */
+  atm_iv?: number | null;
+  /** IV-RV spread (variance risk premium) at multiple horizons. */
+  iv_rv_spreads?: VolatilityIvRvSpreads;
+  /** Per-expiry skew profiles. */
+  skew_profiles?: VolatilitySkewProfile[];
+  /** IV term structure summary. */
+  term_structure?: VolatilityTermStructure;
+  /** Cross-sectional IV dispersion. */
+  iv_dispersion?: VolatilityIvDispersion;
+  /** GEX-by-DTE buckets. */
+  gex_by_dte?: VolatilityGexBucket[];
+  /** Theta-by-DTE buckets. */
+  theta_by_dte?: VolatilityThetaBucket[];
+  /** Put/call profile (by-expiry + by-moneyness). */
+  put_call_profile?: VolatilityPutCallProfile;
+  /** OI concentration metrics. */
+  oi_concentration?: VolatilityOiConcentration;
+  /** Hedging scenarios across hypothetical spot moves. */
+  hedging_scenarios?: VolatilityHedgingScenario[];
+  /** Liquidity stats — ATM vs wing spreads and contract counts. */
+  liquidity?: VolatilityLiquidity;
+}
+
+
+// ─── AdvVolatility ───────────────────────────────────────────────────────────
+//
+// Typed model for `GET /v1/adv_volatility/{symbol}` (Alpha+).
+//
+// Advanced vol analytics — calibrated SVI parameters per expiry, forward
+// prices with basis, the full 2D total-variance surface (and its IV
+// transform), surface-level arbitrage flags, variance-swap fair values,
+// and the 2D vanna/charm/volga/speed greek surfaces.
+
+/**
+ * SVI (Stochastic Volatility Inspired) parameter set for a single expiry.
+ *
+ * Standard parametrization: `total_variance(k) = a + b * (rho * (k - m) +
+ * sqrt((k - m)^2 + sigma^2))`, where `k = log(strike / forward)`.
+ */
+export interface AdvVolatilitySviParameters {
+  /** Expiry date (YYYY-MM-DD). */
+  expiry?: string | null;
+  /** Calendar days to this expiry. */
+  days_to_expiry?: number | null;
+  /** Forward price for this expiry. */
+  forward?: number | null;
+  /** SVI level parameter. */
+  a?: number | null;
+  /** SVI angle parameter (overall slope). */
+  b?: number | null;
+  /** SVI rotation parameter (skew direction, in [-1, 1]). */
+  rho?: number | null;
+  /** SVI translation parameter (smile shift along log-moneyness). */
+  m?: number | null;
+  /** SVI smoothing parameter (smile curvature). */
+  sigma?: number | null;
+  /** Total variance at the money for this expiry. */
+  atm_total_variance?: number | null;
+  /** ATM IV (annualised %) implied by the calibrated SVI fit. */
+  atm_iv?: number | null;
+}
+
+/** Forward / spot / basis at a single expiry. */
+export interface AdvVolatilityForwardPrice {
+  expiry?: string | null;
+  days_to_expiry?: number | null;
+  /** Forward price for this expiry. */
+  forward?: number | null;
+  /** Spot at `as_of` (echoed for convenience). */
+  spot?: number | null;
+  /** `(forward - spot) / spot * 100`. */
+  basis_pct?: number | null;
+}
+
+/**
+ * 2D total-variance surface (and its IV transform).
+ *
+ * `total_variance` and `implied_vol` are row-major 2D arrays indexed
+ * `[expiry_index][moneyness_index]`. Use `expiries` (or `tenors`) and
+ * `moneyness` to label the axes.
+ */
+export interface AdvVolatilityTotalVarianceSurface {
+  /** Log-moneyness grid (axis values). */
+  moneyness?: number[];
+  /** Expiry-date axis (YYYY-MM-DD), row-aligned with `tenors`. */
+  expiries?: string[];
+  /** Tenor in years (axis values), row-aligned with `expiries`. */
+  tenors?: number[];
+  /** Total variance grid `[expiry][moneyness]`. */
+  total_variance?: number[][];
+  /** Implied vol grid `[expiry][moneyness]` (annualised %). */
+  implied_vol?: number[][];
+}
+
+/**
+ * Surface-level arbitrage flag — calendar arb, butterfly arb, or related
+ * shape violations of the calibrated surface.
+ */
+export interface AdvVolatilityArbitrageFlag {
+  /** Expiry the violation lands on. */
+  expiry?: string | null;
+  /** Violation type (e.g. "calendar_arb", "butterfly_arb"). */
+  type?: string | null;
+  /** Strike or log-moneyness coordinate where the violation was detected. */
+  strike_or_k?: number | null;
+  /** Plain-English description. Safe to surface verbatim. */
+  description?: string | null;
+}
+
+/**
+ * Variance-swap fair-value row.
+ *
+ * `fair_variance` is the model-fair forward variance; `fair_vol` is its
+ * vol-equivalent (annualised %). `convexity_adjustment` is the gap between
+ * `fair_vol` and `atm_iv`.
+ */
+export interface AdvVolatilityVarianceSwapFairValue {
+  expiry?: string | null;
+  days_to_expiry?: number | null;
+  /** Variance-swap fair variance. */
+  fair_variance?: number | null;
+  /** Variance-swap fair vol (annualised %). */
+  fair_vol?: number | null;
+  /** ATM IV at this expiry (annualised %). */
+  atm_iv?: number | null;
+  /** `fair_vol - atm_iv`. */
+  convexity_adjustment?: number | null;
+}
+
+/**
+ * 2D greek surface — vanna, charm, volga, or speed.
+ *
+ * `values` is a row-major 2D array indexed `[expiry_index][strike_index]`.
+ * Use `strikes` and `expiries` to label the axes.
+ */
+export interface AdvVolatilityGreekSurface {
+  strikes?: number[];
+  expiries?: string[];
+  /** Greek values `[expiry][strike]`. */
+  values?: number[][];
+}
+
+/** Container for the four 2D greek surfaces returned by adv_volatility. */
+export interface AdvVolatilityGreeksSurfaces {
+  vanna?: AdvVolatilityGreekSurface;
+  charm?: AdvVolatilityGreekSurface;
+  volga?: AdvVolatilityGreekSurface;
+  speed?: AdvVolatilityGreekSurface;
+}
+
+/**
+ * Advanced volatility analytics from `GET /v1/adv_volatility/{symbol}` (Alpha+).
+ *
+ * Returns calibrated SVI parameters per expiry, forward prices with basis,
+ * the full 2D total-variance surface and its IV transform, surface-level
+ * arbitrage flags, variance-swap fair values, and the 2D vanna / charm /
+ * volga / speed greek surfaces.
+ */
+export interface AdvVolatilityResponse {
+  /** Echoed from the request path (e.g. "SPY"). */
+  symbol?: string;
+  /** Spot mid at `as_of`. */
+  underlying_price?: number | null;
+  /** ET wall-clock timestamp this snapshot was computed for. */
+  as_of?: string;
+  /** True if NYSE was open at `as_of`. */
+  market_open?: boolean | null;
+  /** Calibrated SVI parameter set per listed expiry. */
+  svi_parameters?: AdvVolatilitySviParameters[];
+  /** Forward / spot / basis per listed expiry. */
+  forward_prices?: AdvVolatilityForwardPrice[];
+  /** 2D total-variance surface and its IV transform. */
+  total_variance_surface?: AdvVolatilityTotalVarianceSurface;
+  /** Surface-level arbitrage flags (calendar, butterfly, etc.). */
+  arbitrage_flags?: AdvVolatilityArbitrageFlag[];
+  /** Variance-swap fair-value rows per expiry. */
+  variance_swap_fair_values?: AdvVolatilityVarianceSwapFairValue[];
+  /** 2D vanna / charm / volga / speed greek surfaces. */
+  greeks_surfaces?: AdvVolatilityGreeksSurfaces;
+}
+
+
+// ─── Surface ─────────────────────────────────────────────────────────────────
+//
+// Typed model for `GET /v1/surface/{symbol}`.
+//
+// 2D implied-volatility grid — `iv` is row-major `[tenor_index][moneyness_index]`
+// with axes labelled by `tenors` (years) and `moneyness` (log-moneyness).
+// `slices_used` lists which option-chain slices contributed to the grid.
+
+/**
+ * Implied-volatility surface from `GET /v1/surface/{symbol}`.
+ *
+ * `iv` is row-major `[tenor][moneyness]` with axes labelled by `tenors`
+ * (years) and `moneyness` (log-moneyness). `grid_size` is the per-axis
+ * resolution (typically 50). `slices_used` identifies which option-chain
+ * slices contributed to the calibration.
+ */
+export interface SurfaceResponse {
+  /** Echoed from the request path (e.g. "SPY"). */
+  symbol?: string;
+  /** Spot at `as_of`. */
+  spot?: number | null;
+  /** ET wall-clock timestamp this snapshot was computed for. */
+  as_of?: string;
+  /** Per-axis resolution (typically 50). */
+  grid_size?: number;
+  /** Tenor axis in years. */
+  tenors?: number[];
+  /** Log-moneyness axis. */
+  moneyness?: number[];
+  /** Implied vol grid `[tenor][moneyness]` (annualised %). */
+  iv?: number[][];
+  /** Option-chain slices that contributed to the calibration. */
+  slices_used?: string[];
+}
+
+
+// ─── Exposure (GEX/DEX/VEX/CHEX) ─────────────────────────────────────────────
+//
+// Typed models for `GET /v1/exposure/{gex,dex,vex,chex}/{symbol}`.
+//
+// Per-strike dealer-greek exposure. Each endpoint returns a top-level summary
+// (signed net exposure plus, for vex/chex, an `*_interpretation` label) and a
+// `strikes` array with the per-strike call/put/net split. GEX additionally
+// returns OI, volume, and OI-change columns.
+
+/** One row of the GEX-by-strike table. */
+export interface GexStrike {
+  /** Strike price. */
+  strike?: number | null;
+  /** Call-side gamma exposure at this strike. */
+  call_gex?: number | null;
+  /** Put-side gamma exposure at this strike. */
+  put_gex?: number | null;
+  /** `call_gex + put_gex`. */
+  net_gex?: number | null;
+  call_oi?: number | null;
+  put_oi?: number | null;
+  call_volume?: number | null;
+  put_volume?: number | null;
+  /** Day-over-day change in call OI. */
+  call_oi_change?: number | null;
+  /** Day-over-day change in put OI. */
+  put_oi_change?: number | null;
+}
+
+/**
+ * Gamma-exposure-by-strike from `GET /v1/exposure/gex/{symbol}`.
+ *
+ * `gamma_flip` is the strike where net dealer gamma crosses zero.
+ * `net_gex_label` is a verbal classifier ("positive_gamma" /
+ * "negative_gamma" / etc.) consistent with `exposure_summary.regime`.
+ */
+export interface GexResponse {
+  /** Echoed from the request path (e.g. "SPY"). */
+  symbol?: string;
+  /** Spot mid at `as_of`. */
+  underlying_price?: number | null;
+  /** ET wall-clock timestamp this snapshot was computed for. */
+  as_of?: string;
+  /** Strike where net dealer gamma crosses zero. */
+  gamma_flip?: number | null;
+  /** Net dealer gamma exposure summed across the chain. */
+  net_gex?: number | null;
+  /** Verbal classifier (e.g. `'positive_gamma'`, `'negative_gamma'`). */
+  net_gex_label?: string | null;
+  /** Per-strike GEX breakdown. */
+  strikes?: GexStrike[];
+}
+
+/** One row of the DEX-by-strike table. */
+export interface DexStrike {
+  strike?: number | null;
+  call_dex?: number | null;
+  put_dex?: number | null;
+  /** `call_dex + put_dex`. */
+  net_dex?: number | null;
+}
+
+/** Delta-exposure-by-strike from `GET /v1/exposure/dex/{symbol}`. */
+export interface DexResponse {
+  symbol?: string;
+  underlying_price?: number | null;
+  as_of?: string;
+  /** Net dealer delta exposure summed across the chain. */
+  net_dex?: number | null;
+  strikes?: DexStrike[];
+}
+
+/** One row of the VEX-by-strike table. */
+export interface VexStrike {
+  strike?: number | null;
+  call_vex?: number | null;
+  put_vex?: number | null;
+  /** `call_vex + put_vex`. */
+  net_vex?: number | null;
+}
+
+/** Vanna-exposure-by-strike from `GET /v1/exposure/vex/{symbol}`. */
+export interface VexResponse {
+  symbol?: string;
+  underlying_price?: number | null;
+  as_of?: string;
+  /** Net dealer vanna exposure summed across the chain. */
+  net_vex?: number | null;
+  /** Plain-English interpretation of the net vanna regime. */
+  vex_interpretation?: string | null;
+  strikes?: VexStrike[];
+}
+
+/** One row of the CHEX-by-strike table. */
+export interface ChexStrike {
+  strike?: number | null;
+  call_chex?: number | null;
+  put_chex?: number | null;
+  /** `call_chex + put_chex`. */
+  net_chex?: number | null;
+}
+
+/** Charm-exposure-by-strike from `GET /v1/exposure/chex/{symbol}`. */
+export interface ChexResponse {
+  symbol?: string;
+  underlying_price?: number | null;
+  as_of?: string;
+  /** Net dealer charm exposure summed across the chain. */
+  net_chex?: number | null;
+  /** Plain-English interpretation of the net charm regime. */
+  chex_interpretation?: string | null;
+  strikes?: ChexStrike[];
+}

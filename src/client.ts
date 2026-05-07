@@ -24,11 +24,18 @@ import {
   TierRestrictedError,
 } from './errors';
 import type {
+  AdvVolatilityResponse,
+  ChexResponse,
+  DexResponse,
   ExposureLevelsResponse,
   ExposureSummaryResponse,
+  GexResponse,
   MaxPainResponse,
   NarrativeResponse,
   StockSummaryResponse,
+  SurfaceResponse,
+  VexResponse,
+  VolatilityResponse,
   VrpResponse,
   ZeroDteResponse,
 } from './types';
@@ -260,54 +267,54 @@ export class FlashAlphaHistorical {
   }
 
   /** 50×50 IV surface grid. Throws `InsufficientDataError` on sparse days. */
-  async surface(symbol: string, options: AtOptions): Promise<unknown> {
+  async surface(symbol: string, options: AtOptions): Promise<SurfaceResponse> {
     return this._get(`/v1/surface/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<SurfaceResponse>;
   }
 
   // ── Exposure Analytics ──────────────────────────────────────────────────────
 
-  async gex(symbol: string, options: GexOptions): Promise<unknown> {
+  async gex(symbol: string, options: GexOptions): Promise<GexResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.expiration) params['expiration'] = options.expiration;
     if (options.minOi !== undefined) params['min_oi'] = options.minOi;
-    return this._get(`/v1/exposure/gex/${_seg(symbol)}`, params);
+    return this._get(`/v1/exposure/gex/${_seg(symbol)}`, params) as Promise<GexResponse>;
   }
 
   async dex(
     symbol: string,
     options: ExposureWithExpirationOptions,
-  ): Promise<unknown> {
+  ): Promise<DexResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.expiration) params['expiration'] = options.expiration;
-    return this._get(`/v1/exposure/dex/${_seg(symbol)}`, params);
+    return this._get(`/v1/exposure/dex/${_seg(symbol)}`, params) as Promise<DexResponse>;
   }
 
   async vex(
     symbol: string,
     options: ExposureWithExpirationOptions,
-  ): Promise<unknown> {
+  ): Promise<VexResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.expiration) params['expiration'] = options.expiration;
-    return this._get(`/v1/exposure/vex/${_seg(symbol)}`, params);
+    return this._get(`/v1/exposure/vex/${_seg(symbol)}`, params) as Promise<VexResponse>;
   }
 
   async chex(
     symbol: string,
     options: ExposureWithExpirationOptions,
-  ): Promise<unknown> {
+  ): Promise<ChexResponse> {
     const params: Record<string, string | number | undefined> = {
       at: formatAt(options.at),
     };
     if (options.expiration) params['expiration'] = options.expiration;
-    return this._get(`/v1/exposure/chex/${_seg(symbol)}`, params);
+    return this._get(`/v1/exposure/chex/${_seg(symbol)}`, params) as Promise<ChexResponse>;
   }
 
   async exposureSummary(symbol: string, options: AtOptions): Promise<ExposureSummaryResponse> {
@@ -363,16 +370,16 @@ export class FlashAlphaHistorical {
 
   // ── Volatility ──────────────────────────────────────────────────────────────
 
-  async volatility(symbol: string, options: AtOptions): Promise<unknown> {
+  async volatility(symbol: string, options: AtOptions): Promise<VolatilityResponse> {
     return this._get(`/v1/volatility/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<VolatilityResponse>;
   }
 
-  async advVolatility(symbol: string, options: AtOptions): Promise<unknown> {
+  async advVolatility(symbol: string, options: AtOptions): Promise<AdvVolatilityResponse> {
     return this._get(`/v1/adv_volatility/${_seg(symbol)}`, {
       at: formatAt(options.at),
-    });
+    }) as Promise<AdvVolatilityResponse>;
   }
 
   // ── VRP ─────────────────────────────────────────────────────────────────────
