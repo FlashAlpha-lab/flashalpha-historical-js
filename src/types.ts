@@ -1625,3 +1625,133 @@ export interface ChexResponse {
   chex_interpretation?: string | null;
   strikes?: ChexStrike[];
 }
+
+
+// ─── Account / Tickers / Symbols / OptionsMeta / Health / Screener ───────────
+//
+// Typed models for the small remaining endpoints — quota lookup, reference
+// data (tickers / symbols / options metadata), the health probe, and the
+// screener envelope.
+//
+// These shapes are mirrored from the live SDK so consumer code that builds
+// against either package gets a consistent type surface. The historical SDK
+// only currently calls `tickers()` of this group, but the rest are exported
+// so callers can type-check arbitrary payloads parsed elsewhere.
+
+/**
+ * Account info and quota from `GET /v1/account`.
+ *
+ * Returns user identity, plan tier, and current daily quota state.
+ */
+export interface AccountResponse {
+  /** Stable internal user identifier. */
+  user_id?: string;
+  /** Account email. */
+  email?: string;
+  /** Plan tier ("free", "growth", "alpha", etc.). */
+  plan?: string;
+  /** Daily request limit on the current plan. */
+  daily_limit?: number;
+  /** Requests used so far today. */
+  usage_today?: number;
+  /** Requests remaining today (`daily_limit - usage_today`). */
+  remaining?: number;
+  /** ISO timestamp at which `usage_today` resets. */
+  resets_at?: string;
+}
+
+/**
+ * Tickers list from `GET /v1/tickers`.
+ *
+ * `tickers` is the alphabetically-sorted list of all available symbols;
+ * `count` is `tickers.length`.
+ */
+export interface TickersResponse {
+  tickers?: string[];
+  count?: number;
+}
+
+/**
+ * Currently-queried symbols from `GET /v1/symbols`.
+ *
+ * `symbols` is the list of symbols with live data updating in the
+ * in-memory store; `note` is a server-side annotation; `last_updated`
+ * is the ISO timestamp of the most recent refresh.
+ */
+export interface SymbolsResponse {
+  symbols?: string[];
+  count?: number;
+  note?: string;
+  last_updated?: string;
+}
+
+/** One row of the `expirations` array on `OptionsMetaResponse`. */
+export interface OptionsMetaExpiration {
+  /** Expiry date (YYYY-MM-DD). */
+  expiration?: string;
+  /** Strikes listed at this expiry, ascending. */
+  strikes?: number[];
+}
+
+/**
+ * Option chain metadata from `GET /v1/options/{ticker}`.
+ *
+ * Lean metadata payload — just the expirations and the strikes listed at
+ * each. Use this to build expiration / strike pickers without fetching
+ * the full option chain.
+ */
+export interface OptionsMetaResponse {
+  /** Echoed from the request path (e.g. "SPY"). */
+  symbol?: string;
+  /** Per-expiry strike lists. */
+  expirations?: OptionsMetaExpiration[];
+  /** Number of expirations returned. */
+  expiration_count?: number;
+  /** Total contract count across all expirations and strikes. */
+  total_contracts?: number;
+}
+
+/**
+ * Health-check response from `GET /health` (public).
+ *
+ * Tiny payload — just a `status` string. Useful for readiness probes
+ * and end-to-end smoke tests.
+ */
+export interface HealthResponse {
+  status?: string;
+}
+
+/**
+ * Meta block on the screener response. Identifies the universe size,
+ * tier the request was served under, the as-of timestamp, and the
+ * pagination state.
+ */
+export interface ScreenerMeta {
+  /** Total rows matching the filter, before pagination. */
+  total_count?: number;
+  /** Rows actually returned in this response (after `limit`/`offset`). */
+  returned_count?: number;
+  /** Total symbols in the underlying universe at the current tier. */
+  universe_size?: number;
+  /** Pagination offset that was applied. */
+  offset?: number;
+  /** Pagination limit that was applied. */
+  limit?: number;
+  /** Plan tier the request was served under ("growth", "alpha", etc.). */
+  tier?: string;
+  /** ET wall-clock timestamp of the screener snapshot. */
+  as_of?: string;
+}
+
+/**
+ * Screener response from `POST /v1/screener` (Growth+).
+ *
+ * `meta` carries the universe size, tier, as-of, and pagination state.
+ * `data` is an array of plain rows whose shape depends entirely on the
+ * `select` field of the request — leave it untyped (`Record<string, unknown>[]`)
+ * and cast at the call site.
+ */
+export interface ScreenerResponse {
+  meta?: ScreenerMeta;
+  data?: Record<string, unknown>[];
+}

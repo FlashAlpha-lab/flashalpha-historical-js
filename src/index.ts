@@ -152,4 +152,13 @@ export type {
   VexStrike,
   ChexResponse,
   ChexStrike,
+  // ── Account / Reference Data / Health / Screener ──
+  AccountResponse,
+  TickersResponse,
+  SymbolsResponse,
+  OptionsMetaResponse,
+  OptionsMetaExpiration,
+  HealthResponse,
+  ScreenerResponse,
+  ScreenerMeta,
 } from './types';

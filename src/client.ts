@@ -34,6 +34,7 @@ import type {
   NarrativeResponse,
   StockSummaryResponse,
   SurfaceResponse,
+  TickersResponse,
   VexResponse,
   VolatilityResponse,
   VrpResponse,
@@ -234,10 +235,19 @@ export class FlashAlphaHistorical {
    * List symbols with historical coverage. With `symbol`, returns one
    * coverage object; throws `NoCoverageError` if the symbol isn't in
    * the historical dataset.
+   *
+   * NOTE: the historical `/v1/tickers` returns a list-of-objects shape
+   * (`{ count, tickers: [{ symbol, ... }, ...] }`) when no symbol is
+   * passed, and a single coverage object when one is. The shared
+   * `TickersResponse` interface mirrors the live API's flat
+   * `{ tickers: string[], count }` shape — keeping the typed return
+   * here lines up consumer code that talks to both packages, but
+   * historical callers will typically `as unknown as <shape>` to
+   * surface the richer historical fields.
    */
-  async tickers(options: TickersOptions = {}): Promise<unknown> {
+  async tickers(options: TickersOptions = {}): Promise<TickersResponse> {
     const params = options.symbol ? { symbol: options.symbol } : undefined;
-    return this._get('/v1/tickers', params);
+    return this._get('/v1/tickers', params) as Promise<TickersResponse>;
   }
 
   // ── Market Data ─────────────────────────────────────────────────────────────
