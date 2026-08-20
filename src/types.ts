@@ -443,7 +443,7 @@ export interface MaxPainResponse {
 //   - The `at=` query parameter is REQUIRED. The API snaps to the nearest
 //     available minute on or before `at` and returns that snapshot in
 //     `as_of`. Always inspect `as_of` to confirm you got what you asked
-//     for; on gap days (holidays, pre-2018-04-16) the request will error.
+//     for; on gap days (holidays, pre-2017-01-03) the request will error.
 //   - `market_open` reflects NYSE session state at the snapped `as_of`,
 //     not at the requested `at`.
 

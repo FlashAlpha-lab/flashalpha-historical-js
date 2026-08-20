@@ -2,7 +2,7 @@
 
 > Official Node.js SDK for the FlashAlpha Historical API —
 > point-in-time replay of every live analytics endpoint back to
-> **2018-04-16**, in the same response shape as the live API. Includes
+> **2017-01-03**, in the same response shape as the live API. Includes
 > a built-in backtester with NYSE holiday calendar (2018-2026) and
 > async iterators over date / minute ranges. Node 18+, zero deps.
 
@@ -99,7 +99,7 @@ for await (const { at, response } of replay(
 
 ## Coverage and snapping
 
-- Coverage starts **2018-04-16**.
+- Coverage starts **2017-01-03**.
 - Every analytic snaps `at` to the nearest available minute on or
   before the request — always inspect `as_of` on the response to
   confirm the snap.

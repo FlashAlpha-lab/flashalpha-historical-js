@@ -80,7 +80,7 @@ const results = await bt.run(
   returns the snapped time in `as_of` on the response. Always inspect
   `as_of` to confirm — on gap days the request will error with
   `NoDataError` or `NoCoverageError`.
-- Dataset coverage starts **2018-04-16**. Anything earlier raises
+- Dataset coverage starts **2017-01-03**. Anything earlier raises
   `NoCoverageError`.
 
 ## Quota
