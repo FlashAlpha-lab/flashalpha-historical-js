@@ -41,7 +41,7 @@ export interface DataAsOf {
   equity_feed: string | null;
   /** Equity and ETF option quotes. */
   equity_options_feed: string | null;
-  /** Index spot (SPX, NDX, RUT, VIX). */
+  /** Index spot (SPX, RUT, VIX and the other index roots). */
   index_feed: string | null;
   /** Index option quotes. */
   index_options_feed: string | null;
