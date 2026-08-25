@@ -161,4 +161,7 @@ export type {
   HealthResponse,
   ScreenerResponse,
   ScreenerMeta,
+  // ── Response envelope ──
+  DataAsOf,
+  ArchiveAsOf,
 } from './types';
