@@ -23,6 +23,59 @@
 // return lowercase "buy" / "sell". Docs and typed models use that casing
 // consistently.
 
+/**
+ * When each upstream feed last delivered to the node that served the response.
+ *
+ * On this replay service every feed is `null`: a replay node reads the archive and
+ * consumes no live feed. The object is still returned so the envelope has one shape
+ * across the live and historical services, and so a historical response cannot be
+ * mistaken for a live one.
+ *
+ * The vintage that matters here is {@link ArchiveAsOf}, carried alongside it as
+ * `archive_as_of`.
+ */
+export interface DataAsOf {
+  /** Which node answered. */
+  node: string;
+  /** Equity and ETF spot quotes. */
+  equity_feed: string | null;
+  /** Equity and ETF option quotes. */
+  equity_options_feed: string | null;
+  /** Index spot (SPX, RUT, VIX and the other index roots). */
+  index_feed: string | null;
+  /** Index option quotes. */
+  index_options_feed: string | null;
+  /** Futures prices. */
+  futures_feed: string | null;
+  /** Futures option quotes. */
+  futures_options_feed: string | null;
+  /** Classified options and stock trade tape. */
+  flow_feed: string | null;
+  /** Settled open interest. */
+  oi_feed: string | null;
+  /** VIX, VVIX, SKEW, MOVE, SPX and Fear & Greed. */
+  macro_feed: string | null;
+}
+
+/**
+ * The vintage of the archive rows actually replayed for the timestamp you requested.
+ *
+ * Same shape as {@link DataAsOf} - the key order is a contract shared with the live
+ * service - but the values describe stored rows rather than live feeds. A field is
+ * `null` when the response did not read that class of data.
+ *
+ * This is what makes an archive gap detectable. Request a moment with no row and the
+ * query returns the most recent earlier row; nothing else in the response
+ * distinguishes the two. Point-in-time work should read this and drop or flag
+ * observations whose inputs precede the requested instant by more than the study
+ * tolerates.
+ *
+ * `oi_feed` trailing by a session is correct rather than a gap: settled open interest
+ * is published once per session, so the newest figure that existed at any intraday
+ * moment is the prior close.
+ */
+export interface ArchiveAsOf extends DataAsOf {}
+
 export interface ExposureSummaryExposures {
   // Field-level `| null` matches C#/Go/Java (defensive — API may return null
   // under unobserved edge conditions even when the parent block is present).
@@ -76,6 +129,12 @@ export interface ExposureSummaryResponse {
   interpretation?: ExposureSummaryInterpretation;
   hedging_estimate?: ExposureSummaryHedgingEstimate;
   zero_dte?: ExposureSummaryZeroDte;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -285,6 +344,12 @@ export interface VrpResponse {
   warnings?: string[];
   /** Macro context. See {@link VrpMacro}. */
   macro?: VrpMacro;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -431,6 +496,12 @@ export interface MaxPainResponse {
    * gamma magnitude (20%). Most meaningful for near-term expiries.
    */
   pin_probability?: number | null;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -729,6 +800,12 @@ export interface StockSummaryResponse {
   /** Full dealer-exposure block. `null` when no usable options data. */
   exposure?: StockSummaryExposure | null;
   macro?: StockSummaryMacro;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -824,6 +901,12 @@ export interface NarrativeResponse {
   /** ET wall-clock timestamp this snapshot was computed for. */
   as_of?: string;
   narrative?: Narrative;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -870,6 +953,12 @@ export interface ExposureLevelsResponse {
   /** ET wall-clock timestamp this snapshot was computed for. */
   as_of?: string;
   levels?: ExposureLevels;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1091,6 +1180,12 @@ export interface ZeroDteResponse {
   no_zero_dte?: boolean;
   message?: string;
   next_zero_dte_expiry?: string | null;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1315,6 +1410,12 @@ export interface VolatilityResponse {
   hedging_scenarios?: VolatilityHedgingScenario[];
   /** Liquidity stats — ATM vs wing spreads and contract counts. */
   liquidity?: VolatilityLiquidity;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1473,6 +1574,12 @@ export interface AdvVolatilityResponse {
   variance_swap_fair_values?: AdvVolatilityVarianceSwapFairValue[];
   /** 2D vanna / charm / volga / speed greek surfaces. */
   greeks_surfaces?: AdvVolatilityGreeksSurfaces;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1509,6 +1616,12 @@ export interface SurfaceResponse {
   iv?: number[][];
   /** Option-chain slices that contributed to the calibration. */
   slices_used?: string[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1563,6 +1676,12 @@ export interface GexResponse {
   net_gex_label?: string | null;
   /** Per-strike GEX breakdown. */
   strikes?: GexStrike[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /** One row of the DEX-by-strike table. */
@@ -1582,6 +1701,12 @@ export interface DexResponse {
   /** Net dealer delta exposure summed across the chain. */
   net_dex?: number | null;
   strikes?: DexStrike[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /** One row of the VEX-by-strike table. */
@@ -1603,6 +1728,12 @@ export interface VexResponse {
   /** Plain-English interpretation of the net vanna regime. */
   vex_interpretation?: string | null;
   strikes?: VexStrike[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /** One row of the CHEX-by-strike table. */
@@ -1624,6 +1755,12 @@ export interface ChexResponse {
   /** Plain-English interpretation of the net charm regime. */
   chex_interpretation?: string | null;
   strikes?: ChexStrike[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 
@@ -1661,6 +1798,12 @@ export interface AccountResponse {
   remaining?: string;
   /** ISO timestamp at which `usage_today` resets. */
   resets_at?: string;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /**
@@ -1672,6 +1815,12 @@ export interface AccountResponse {
 export interface TickersResponse {
   tickers?: string[];
   count?: number;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /**
@@ -1686,6 +1835,12 @@ export interface SymbolsResponse {
   count?: number;
   note?: string;
   last_updated?: string;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /** One row of the `expirations` array on `OptionsMetaResponse`. */
@@ -1712,6 +1867,12 @@ export interface OptionsMetaResponse {
   expiration_count?: number;
   /** Total contract count across all expirations and strikes. */
   total_contracts?: number;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /**
@@ -1722,6 +1883,12 @@ export interface OptionsMetaResponse {
  */
 export interface HealthResponse {
   status?: string;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
 
 /**
@@ -1757,4 +1924,10 @@ export interface ScreenerMeta {
 export interface ScreenerResponse {
   meta?: ScreenerMeta;
   data?: Record<string, unknown>[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
 }
