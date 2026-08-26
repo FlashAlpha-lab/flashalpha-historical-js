@@ -38,7 +38,8 @@ console.log(snap);
 
 Every successful response carries `data_as_of`, reporting when each upstream feed last
 delivered to the node that answered, plus `endpoint_version` identifying the deployment
-that produced it.
+that produced it. Every endpoint on this replay service returns a JSON object, so unlike
+the live SDK there is no bare-array case where the envelope is unavailable.
 
 ```ts
 const gex = await fa.gex('SPY', { at: '2024-03-15T14:30:00Z' });
@@ -52,7 +53,7 @@ gex.endpoint_version;                  // the deployment that answered
 `DataAsOf` and `ArchiveAsOf` are exported from the package root:
 
 ```ts
-import type { DataAsOf, ArchiveAsOf } from '@flashalpha/historical';
+import type { DataAsOf, ArchiveAsOf } from 'flashalpha-historical';
 ```
 
 | Field | Feed | Expected cadence |
