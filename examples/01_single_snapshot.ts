@@ -14,7 +14,8 @@ async function main() {
     as_of: string;
     underlying_price: number;
     regime: string;
-    gamma_flip: number;
+    gamma_flip: number | null;
+    gamma_flip_status?: string | null;
     exposures: { net_gex: number; net_dex: number; net_vex: number };
     interpretation: Record<string, string>;
   };
@@ -24,7 +25,14 @@ async function main() {
   console.log(`  regime:      ${snap.regime}`);
   console.log(`  net GEX:     $${snap.exposures.net_gex.toLocaleString()}`);
   console.log(`  net DEX:     $${snap.exposures.net_dex.toLocaleString()}`);
-  console.log(`  gamma flip:  ${snap.gamma_flip}`);
+  // `gamma_flip` is nullable: the server withholds the level when it cannot
+  // stand behind it, and `gamma_flip_status` carries the reason. Any status
+  // other than 'available' means no level — new reason codes can appear.
+  console.log(
+    snap.gamma_flip != null
+      ? `  gamma flip:  ${snap.gamma_flip}`
+      : `  gamma flip:  n/a (${snap.gamma_flip_status ?? 'unknown'})`,
+  );
   for (const [k, v] of Object.entries(snap.interpretation)) {
     console.log(`  ${k}: ${v}`);
   }

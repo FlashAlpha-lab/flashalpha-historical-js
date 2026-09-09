@@ -75,7 +75,8 @@ const summary = await client.exposureSummary('SPY', {
   at: '2020-03-16T15:30:00',
 });
 //   summary.regime              => 'positive_gamma' | 'negative_gamma' | ...
-//   summary.gamma_flip          => number | null
+//   summary.gamma_flip          => number | null (often null when withheld)
+//   summary.gamma_flip_status   => 'available' | withholding reason (string)
 //   summary.exposures.net_gex   => number | null
 ```
 
