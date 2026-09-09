@@ -353,6 +353,9 @@ export class Backtester {
       }
       if (typeof snap.regime === 'string') row['regime'] = snap.regime;
       if (snap.gamma_flip !== undefined) row['gamma_flip'] = snap.gamma_flip;
+      if (snap.gamma_flip_status !== undefined) {
+        row['gamma_flip_status'] = snap.gamma_flip_status;
+      }
       if (snap.exposures && typeof snap.exposures === 'object') {
         row['net_gex'] = snap.exposures.net_gex;
         row['net_dex'] = snap.exposures.net_dex;

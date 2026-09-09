@@ -117,6 +117,7 @@ export interface ExposureSummaryResponse {
   // NOT on /v1/exposure/summary. Don't add it to this type even though it
   // would be defensive — the field genuinely isn't returned for this endpoint.
   gamma_flip?: number | null;
+  gamma_flip_status?: string | null;
   /**
    * Confirmed values from server source:
    *   positive_gamma | negative_gamma | unknown
@@ -253,6 +254,8 @@ export interface VrpRegime {
   /** Net dealer gamma exposure in dollars per 1% spot move. */
   net_gex?: number | null;
   gamma_flip?: number | null;
+  /** `"available"` when a level is published; otherwise the withholding reason. */
+  gamma_flip_status?: string | null;
 }
 
 /**
@@ -437,6 +440,8 @@ export interface MaxPainDealerAlignment {
   description?: string | null;
   /** Strike where net dealer gamma crosses zero. */
   gamma_flip?: number | null;
+  /** `"available"` when a level is published; otherwise the withholding reason. */
+  gamma_flip_status?: string | null;
   /** Strike with highest absolute call GEX (dealer-side resistance). */
   call_wall?: number | null;
   /** Strike with highest absolute put GEX (dealer-side support). */
@@ -663,6 +668,8 @@ export interface StockSummaryExposure {
   net_chex?: number | null;
   /** Strike where net dealer gamma crosses zero. */
   gamma_flip?: number | null;
+  /** `"available"` when a level is published; otherwise the withholding reason. */
+  gamma_flip_status?: string | null;
   /** Strike with highest absolute call GEX (resistance). */
   call_wall?: number | null;
   /** Strike with highest absolute put GEX (support). */
@@ -842,6 +849,8 @@ export interface NarrativeData {
   vix?: number | null;
   /** Strike where net dealer gamma crosses zero. */
   gamma_flip?: number | null;
+  /** `"available"` when a level is published; otherwise the withholding reason. */
+  gamma_flip_status?: string | null;
   /** Highest-absolute-call-GEX strike. */
   call_wall?: number | null;
   /** Highest-absolute-put-GEX strike. */
@@ -927,9 +936,16 @@ export interface NarrativeResponse {
  *   - `call_wall` / `put_wall`: highest absolute call/put GEX
  *   - `highest_oi_strike`: highest total OI (calls + puts)
  *   - `zero_dte_magnet`: dominant 0DTE pin strike (null off 0DTE days)
+ *
+ * `gamma_flip` is frequently `null`: the server withholds the level when it
+ * cannot stand behind it. `gamma_flip_status` reads `"available"` when a level
+ * is published, otherwise a reason code (`no_boundary`,
+ * `insufficient_local_coverage`, `sensitive_root`, ...). Treat any status other
+ * than `"available"` as unavailable — new reason codes may be added.
  */
 export interface ExposureLevels {
   gamma_flip?: number | null;
+  gamma_flip_status?: string | null;
   max_positive_gamma?: number | null;
   max_negative_gamma?: number | null;
   call_wall?: number | null;
@@ -982,6 +998,7 @@ export interface ZeroDteRegime {
   label?: string;
   description?: string;
   gamma_flip?: number | null;
+  gamma_flip_status?: string | null;
   spot_vs_flip?: 'above' | 'below';
   spot_to_flip_pct?: number | null;
   distance_to_flip_dollars?: number | null;
@@ -1670,6 +1687,8 @@ export interface GexResponse {
   as_of?: string;
   /** Strike where net dealer gamma crosses zero. */
   gamma_flip?: number | null;
+  /** `"available"` when a level is published; otherwise the withholding reason. */
+  gamma_flip_status?: string | null;
   /** Net dealer gamma exposure summed across the chain. */
   net_gex?: number | null;
   /** Verbal classifier (e.g. `'positive_gamma'`, `'negative_gamma'`). */

@@ -147,8 +147,20 @@ for await (const { at, response } of replay(
   'SPY',
   iterMinutes('2025-01-15', '2025-01-15', { stepMinutes: 15 }),
 )) {
-  const r = response as { regime: string; gamma_flip: number; underlying_price: number };
-  console.log(at, r.regime, r.underlying_price, '↔', r.gamma_flip);
+  const r = response as {
+    regime: string;
+    gamma_flip: number | null;
+    gamma_flip_status?: string | null;
+    underlying_price: number;
+  };
+  // `gamma_flip` is often `null` — the server withholds the level when it cannot
+  // stand behind it, and `gamma_flip_status` says why (`'available'`, `'no_boundary'`,
+  // `'insufficient_quote_quality'`, ...). Treat anything other than `'available'`
+  // as unavailable; new reason codes can be added at any time.
+  const flip = r.gamma_flip !== null && r.gamma_flip !== undefined
+    ? r.gamma_flip.toFixed(2)
+    : `n/a (${r.gamma_flip_status ?? 'unknown'})`;
+  console.log(at, r.regime, r.underlying_price, '↔', flip);
 }
 ```
 

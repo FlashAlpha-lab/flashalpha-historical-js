@@ -54,7 +54,9 @@ const hx = new FlashAlphaHistorical(process.env.FLASHALPHA_API_KEY!);
 
 // What did SPY's dealer positioning look like at the COVID-crash close?
 const snap = await hx.exposureSummary('SPY', { at: '2020-03-16T15:30:00' });
-console.log(snap.regime, snap.gamma_flip);
+// `gamma_flip` is nullable; `gamma_flip_status` is 'available' or the reason
+// the level was withheld (e.g. 'no_boundary'). `regime` is 'unknown' when withheld.
+console.log(snap.regime, snap.gamma_flip, snap.gamma_flip_status);
 ```
 
 The `at` argument accepts:
