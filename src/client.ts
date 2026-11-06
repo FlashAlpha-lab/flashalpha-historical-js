@@ -37,6 +37,7 @@ import type {
   TickersResponse,
   VexResponse,
   VolatilityResponse,
+  SellWindowResponse,
   VrpResponse,
   ZeroDteResponse,
 } from './types';
@@ -404,5 +405,23 @@ export class FlashAlphaHistorical {
     return this._get(`/v1/vrp/${_seg(symbol)}`, {
       at: formatAt(options.at),
     }) as Promise<VrpResponse>;
+  }
+
+  // ── sell-window (own response shape) ──────────────────────────────────────
+
+  /**
+   * Replay sell-window: should you have sold options that session? Returns the answer
+   * for any session since 2018, with strikes from the archive chain at `at`. The
+   * backtests entered at 09:35 ET, so `at: '<session>T09:35:00'` returns the backtest's
+   * entry strikes. The session switches at the close: a date-only `at` reads 16:00 ET
+   * and returns the answer for the next session. SPY, QQQ and IWM; any other symbol
+   * returns every window as `unavailable`. Requires Alpha+.
+   *
+   * Docs: https://flashalpha.com/docs/historical-sell-window
+   */
+  async sellWindow(symbol: string, options: AtOptions): Promise<SellWindowResponse> {
+    return this._get(`/v1/strategies/sell-window/${_seg(symbol)}`, {
+      at: formatAt(options.at),
+    }) as Promise<SellWindowResponse>;
   }
 }

@@ -56,6 +56,11 @@ export type {
   ExposureSummaryInterpretation,
   ExposureSummaryResponse,
   ExposureSummaryZeroDte,
+  // ── sell-window ──
+  SellWindowCandidate,
+  SellWindowLeg,
+  SellWindowResponse,
+  SellWindowWindow,
   // ── VRP ──
   VrpResponse,
   VrpCore,
