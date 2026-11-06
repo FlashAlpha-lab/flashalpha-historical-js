@@ -1950,3 +1950,81 @@ export interface ScreenerResponse {
   /** Vintage of the archive rows actually replayed. */
   archive_as_of?: ArchiveAsOf;
 }
+
+// ── sell-window ──────────────────────────────────────────────────────────────
+// Own response shape: not the StrategyDecisionResponse envelope.
+
+/** One contract of a sell-window trade. */
+export interface SellWindowLeg {
+  side?: 'sell' | 'buy';
+  /** Contracts per unit of the trade: 2 for the sold body of `put_bwb`, otherwise 1. */
+  quantity?: number;
+  type?: 'call' | 'put';
+  strike?: number;
+  /** The contract's own delta when the answer was served (negative for puts). */
+  delta?: number;
+  bid?: number;
+  ask?: number;
+}
+
+/** One trade to consider on a sell window. */
+export interface SellWindowCandidate {
+  structure?:
+    | 'short_put'
+    | 'short_call'
+    | 'short_strangle'
+    | 'short_straddle'
+    | 'tail_hedged_put'
+    | 'put_credit_spread'
+    | 'put_bwb';
+  /** `expiry`: hold to expiration. `tp50`: close at half of the credit, otherwise hold. */
+  exit?: 'expiry' | 'tp50';
+  /** Absent when no option chain could be loaded for the answer. */
+  legs?: SellWindowLeg[];
+  /** Net credit per share at mid. Multiply by 100 for one unit in dollars. */
+  mid_credit?: number;
+}
+
+/** One of the four windows, named by its listed expiry. */
+export interface SellWindowWindow {
+  /** `yyyy-MM-dd`. Absent when no listed expiry falls in the window's range. */
+  expiry?: string;
+  /** Calendar days from `session` to `expiry`. */
+  days_to_expiry?: number;
+  /** `unavailable` means no answer: treat it like a skip. */
+  action?: 'sell' | 'skip' | 'unavailable';
+  /**
+   * Present only when `action` is `sell`. Can be empty: a trade whose legs cannot
+   * all be found in the chain is left out.
+   */
+  candidates?: SellWindowCandidate[];
+}
+
+/**
+ * Should you sell options today? Response of
+ * `GET /v1/strategies/sell-window/{symbol}`?at=....
+ *
+ * `spot`, `quoted_at` and `legs_indicative` are present when a window sells.
+ */
+export interface SellWindowResponse {
+  symbol?: string;
+  /** `yyyy-MM-dd`. The trading session the answer applies to. */
+  session?: string;
+  /** Underlying mid the strikes were picked against. */
+  spot?: number;
+  /** UTC time of the quotes behind the strikes. */
+  quoted_at?: string;
+  /**
+   * True when the quotes are from before that session's 09:35 ET entry: call again at
+   * or after 09:35 ET for the strikes to trade.
+   */
+  legs_indicative?: boolean;
+  /** Always four entries: same day, then about one week, two weeks and one month out. */
+  windows?: SellWindowWindow[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
+}

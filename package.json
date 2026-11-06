@@ -1,7 +1,7 @@
 {
   "name": "flashalpha-historical",
-  "version": "0.4.0-rc.13",
-  "description": "Official JavaScript/TypeScript SDK for the FlashAlpha Historical API — point-in-time replay of GEX, gamma flip, VRP, narrative, max pain, 0DTE, and the full stock summary at any minute back to 2017-01-03. Backtest options strategies against 80B+ option rows.",
+  "version": "0.4.0-rc.14",
+  "description": "Official JavaScript/TypeScript SDK for the FlashAlpha Historical API — point-in-time replay of GEX, gamma flip, VRP, narrative, max pain, 0DTE, and the full stock summary at any minute back to 2017-01-03. Backtest options strategies against 80B+ option rows. Replay the sell-window sell-or-skip call for any session since 2018.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -16,6 +16,9 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "sell-window",
+    "option-selling",
+    "short-premium",
     "options",
     "options-backtest",
     "options-backtesting",

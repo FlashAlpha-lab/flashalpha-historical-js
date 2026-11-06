@@ -151,3 +151,55 @@ describe('FlashAlphaHistorical', () => {
     expect(u).toContain('expiry=2026-03-06');
   });
 });
+
+describe('sellWindow', () => {
+  it('sends `at` and returns the answer', async () => {
+    const calls: string[] = [];
+    const fakeFetch = (async (url: string) => {
+      calls.push(url);
+      return new Response(
+        JSON.stringify({
+          symbol: 'SPY',
+          session: '2026-10-16',
+          spot: 772.255,
+          quoted_at: '2026-10-16T13:35:00Z',
+          legs_indicative: false,
+          windows: [
+            {
+              expiry: '2026-10-16',
+              days_to_expiry: 0,
+              action: 'sell',
+              candidates: [
+                {
+                  structure: 'short_put',
+                  exit: 'expiry',
+                  legs: [{ side: 'sell', quantity: 1, type: 'put', strike: 769, delta: -0.19, bid: 0.39, ask: 0.4 }],
+                  mid_credit: 0.395,
+                },
+              ],
+            },
+            { expiry: '2026-10-23', days_to_expiry: 7, action: 'skip' },
+            { expiry: '2026-10-30', days_to_expiry: 14, action: 'skip' },
+            { action: 'unavailable' },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }) as typeof fetch;
+
+    const hx = new FlashAlphaHistorical('KEY', { fetch: fakeFetch });
+    const answer = await hx.sellWindow('SPY', { at: '2026-10-16T09:35:00' });
+    expect(calls[0]).toContain(`${BASE_URL}/v1/strategies/sell-window/SPY`);
+    expect(calls[0]).toContain('at=2026-10-16T09%3A35%3A00');
+    expect(answer.windows?.[0].candidates?.[0].mid_credit).toBe(0.395);
+  });
+
+  it('maps 400 invalid_at to InvalidAtError', async () => {
+    const fakeFetch = (async () =>
+      new Response(JSON.stringify({ error: 'invalid_at', message: 'at is in the future.' }), {
+        status: 400,
+      })) as typeof fetch;
+    const hx = new FlashAlphaHistorical('K', { fetch: fakeFetch });
+    await expect(hx.sellWindow('SPY', { at: '2099-01-02T09:35:00' })).rejects.toBeInstanceOf(InvalidAtError);
+  });
+});
