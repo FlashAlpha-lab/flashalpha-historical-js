@@ -17,6 +17,8 @@ export type {
   GexOptions,
   ZeroDteOptions,
   MaxPainOptions,
+  ExpiryImpactOptions,
+  StrikeDependencyOptions,
 } from './client';
 
 export {
@@ -157,6 +159,15 @@ export type {
   VexStrike,
   ChexResponse,
   ChexStrike,
+  // ── Expiry impact and strike dependency (SPY, QQQ) ──
+  GammaContextReason,
+  GammaTotals,
+  GammaStrikeImpact,
+  GammaRemovalImpact,
+  GammaContextFact,
+  GammaExpiryRow,
+  ExpiryImpactResponse,
+  StrikeDependencyResponse,
   // ── Account / Reference Data / Health / Screener ──
   AccountResponse,
   TickersResponse,

@@ -226,12 +226,32 @@ Every analytics method takes `{ at: string | Date }` (plus optional filters).
 | `exposureLevels(s, {at})` | `/v1/exposure/levels/{s}` |
 | `narrative(s, {at})` | `/v1/exposure/narrative/{s}` |
 | `zeroDte(s, {at, strikeRange?})` | `/v1/exposure/zero-dte/{s}` |
+| `expiryImpact(s, {at, expiry?, limit?})` | `/v1/exposure/expiry-impact/{s}` |
+| `strikeDependency(s, {at, strike})` | `/v1/exposure/strike-dependency/{s}` |
 | `maxPain(s, {at, expiration?})` | `/v1/maxpain/{s}` |
 | `stockSummary(s, {at})` | `/v1/stock/{s}/summary` |
 | `volatility(s, {at})` | `/v1/volatility/{s}` |
 | `advVolatility(s, {at})` | `/v1/adv_volatility/{s}` |
 | `vrp(s, {at})` | `/v1/vrp/{s}` |
 | `sellWindow(s, {at})` | `/v1/strategies/sell-window/{s}` |
+
+### Expiry impact and strike dependency replay (SPY, QQQ)
+
+Replay either calculation at any minute with `at`. A date-only `at` uses 15:55 ET.
+Results are model reconstructions from archived quotes. Requires Alpha or higher.
+
+```typescript
+import { FlashAlphaHistorical } from 'flashalpha-historical';
+
+const hx = new FlashAlphaHistorical('YOUR_API_KEY');
+
+const expiryImpact = await hx.expiryImpact('SPY', { at: '2026-10-09T15:55:00', limit: 5 });
+console.log(expiryImpact.impact.removed_gross_share_pct, expiryImpact.impact.net_sign_changed);
+
+// strike must be an exact listed strike
+const strikeDependency = await hx.strikeDependency('SPY', { at: '2026-10-09T15:55:00', strike: 670 });
+console.log(strikeDependency.dominant_expiry, strikeDependency.dominant_expiry_share_pct);
+```
 
 ## Errors
 

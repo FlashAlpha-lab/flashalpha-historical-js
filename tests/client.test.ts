@@ -1,7 +1,10 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   AuthenticationError,
   BASE_URL,
   FlashAlphaHistorical,
+  FlashAlphaHistoricalError,
   InsufficientDataError,
   InvalidAtError,
   NoCoverageError,
@@ -201,5 +204,159 @@ describe('sellWindow', () => {
       })) as typeof fetch;
     const hx = new FlashAlphaHistorical('K', { fetch: fakeFetch });
     await expect(hx.sellWindow('SPY', { at: '2099-01-02T09:35:00' })).rejects.toBeInstanceOf(InvalidAtError);
+  });
+});
+
+// ── expiry impact and strike dependency ──────────────────────────────────────
+// Fixtures are real production responses captured 2026-11-19 (lists trimmed).
+
+function fixture(name: string): unknown {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
+}
+
+function fixtureFetch(status: number, body: unknown, calls: string[] = []): typeof fetch {
+  return (async (url: string) => {
+    calls.push(url);
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+}
+
+describe('expiryImpact', () => {
+  it('sends only `at` when expiry and limit are omitted', async () => {
+    const calls: string[] = [];
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('expiry_impact_historical.json'), calls),
+    });
+    await hx.expiryImpact('SPY', { at: '2026-10-09T15:55:00' });
+    const url = new URL(calls[0]);
+    expect(`${url.origin}${url.pathname}`).toBe(`${BASE_URL}/v1/exposure/expiry-impact/SPY`);
+    expect(url.search).toBe('?at=2026-10-09T15%3A55%3A00');
+  });
+
+  it('sends expiry and limit when given', async () => {
+    const calls: string[] = [];
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('expiry_impact_historical.json'), calls),
+    });
+    await hx.expiryImpact('QQQ', { at: '2026-10-09', expiry: '2026-10-12', limit: 3 });
+    const url = new URL(calls[0]);
+    expect(url.pathname).toBe('/v1/exposure/expiry-impact/QQQ');
+    expect(url.search).toBe('?at=2026-10-09&expiry=2026-10-12&limit=3');
+  });
+
+  it('binds the typed response at every level', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('expiry_impact_historical.json')),
+    });
+    const r = await hx.expiryImpact('SPY', { at: '2026-10-09T15:55:00' });
+    expect(r.selected_expiry).toBe('2026-10-09');
+    expect(r.available_expiries[1]).toBe('2026-10-12');
+    expect(r.current.contract_count).toBe(12078);
+    expect(r.excluding_expiry.status).toBe('available');
+    expect(r.impact.removed_gross_share_pct).toBeCloseTo(27.355976302706107, 12);
+    expect(r.impact.largest_gross_reductions[0].strike).toBe(778);
+    expect(r.impact.strongest_remaining_concentrations[1].excluded_net_gex_usd).toBeCloseTo(-186739.42129722596, 6);
+    expect(r.strikes[2].strike).toBe(60);
+    expect(r.facts[0].supporting_values['gross_share_pct']).toBeCloseTo(27.355976302706107, 12);
+    expect(r.reasons[0].code).toBe('historical_model_reconstruction');
+    expect(r.reasons[1].contract_count).toBe(302);
+    expect(r.pricing_basis).toBe('historical_quote_repriced_dated_inputs');
+    expect(r.endpoint_version).toBe('2026.09.30');
+    expect(r.data_as_of?.node).toBe('f3');
+    expect(r.archive_as_of?.node).toBe('f3');
+    expect(r.archive_as_of?.equity_options_feed).toBe('2026-10-09T19:55:00Z');
+  });
+
+  it('throws TierRestrictedError below Alpha', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(403, { error: 'tier_restricted', message: 'Requires Alpha plan.' }),
+    });
+    await expect(hx.expiryImpact('SPY', { at: '2026-10-09' })).rejects.toBeInstanceOf(TierRestrictedError);
+  });
+
+  it('surfaces 422 unsupported_symbol as FlashAlphaHistoricalError', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(422, fixture('error_unsupported_symbol.json')),
+    });
+    const err = await hx.expiryImpact('AAPL', { at: '2026-10-09' }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FlashAlphaHistoricalError);
+    expect((err as FlashAlphaHistoricalError).statusCode).toBe(422);
+    expect(((err as FlashAlphaHistoricalError).response as Record<string, unknown>)['error']).toBe(
+      'unsupported_symbol',
+    );
+  });
+});
+
+describe('strikeDependency', () => {
+  it('sends `at` and a fractional strike exactly', async () => {
+    const calls: string[] = [];
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('strike_dependency_historical.json'), calls),
+    });
+    await hx.strikeDependency('SPY', { at: '2026-10-09T15:55:00', strike: 672.5 });
+    const url = new URL(calls[0]);
+    expect(url.pathname).toBe('/v1/exposure/strike-dependency/SPY');
+    expect(url.search).toBe('?at=2026-10-09T15%3A55%3A00&strike=672.5');
+  });
+
+  it('sends a whole strike', async () => {
+    const calls: string[] = [];
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('strike_dependency_historical.json'), calls),
+    });
+    await hx.strikeDependency('SPY', { at: '2026-10-09', strike: 670 });
+    expect(new URL(calls[0]).search).toBe('?at=2026-10-09&strike=670');
+  });
+
+  it('binds the typed response at every level', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(200, fixture('strike_dependency_historical.json')),
+    });
+    const r = await hx.strikeDependency('SPY', { at: '2026-10-09T15:55:00', strike: 670 });
+    expect(r.strike).toBe(670);
+    expect(r.contract_count).toBe(60);
+    expect(r.put_gex_usd).toBeCloseTo(-105726839.68087156, 6);
+    expect(r.by_expiry[0].expiry).toBe('2026-10-13');
+    expect(r.by_expiry[0].valuation_cutoff_at).toBe('2026-10-13T20:00:00Z');
+    expect(r.by_expiry[0].settlement_at).toBeNull();
+    expect(r.by_expiry[2].calendar_days_to_expiry).toBe(6);
+    expect(r.by_expiry[2].share_of_strike_gross_pct).toBeCloseTo(0.4462196855682832, 12);
+    expect(r.dominant_expiry).toBe('2026-12-18');
+    expect(r.dominant_expiry_share_pct).toBeCloseTo(29.844720445178503, 12);
+    expect(r.endpoint_version).toBe('2026.09.30');
+    expect(r.data_as_of?.equity_feed).toBeNull();
+    expect(r.archive_as_of?.node).toBe('f3');
+    expect(r.archive_as_of?.oi_feed).toBe('2026-10-08T20:00:00Z');
+  });
+
+  it('throws TierRestrictedError below Alpha', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(403, { error: 'tier_restricted', message: 'Requires Alpha plan.' }),
+    });
+    await expect(hx.strikeDependency('SPY', { at: '2026-10-09', strike: 670 })).rejects.toBeInstanceOf(
+      TierRestrictedError,
+    );
+  });
+
+  it('maps 404 strike_not_found to NoDataError with the body', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(404, fixture('error_strike_not_found.json')),
+    });
+    const err = await hx.strikeDependency('SPY', { at: '2026-10-09', strike: 671.3 }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NoDataError);
+    expect(((err as NoDataError).response as Record<string, unknown>)['error']).toBe('strike_not_found');
+    expect(((err as NoDataError).response as Record<string, unknown>)['requested_strike']).toBe(671.3);
+  });
+
+  it('surfaces 422 unsupported_symbol as FlashAlphaHistoricalError', async () => {
+    const hx = new FlashAlphaHistorical('KEY', {
+      fetch: fixtureFetch(422, fixture('error_unsupported_symbol.json')),
+    });
+    const err = await hx.strikeDependency('AAPL', { at: '2026-10-09', strike: 200 }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FlashAlphaHistoricalError);
+    expect((err as FlashAlphaHistoricalError).statusCode).toBe(422);
   });
 });

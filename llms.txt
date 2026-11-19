@@ -83,6 +83,8 @@ Same as the live API (every endpoint also requires `at`):
 - `maxPain(symbol, {at})` — max pain strike, pain curve, dealer
   alignment, pin probability.
 - `gex` / `dex` / `vex` / `chex` — exposure curves by strike.
+- `expiryImpact(symbol, {at, expiry?, limit?})` - compares the current SPY or QQQ gamma distribution with the same captured inputs after excluding one expiry (Alpha+).
+- `strikeDependency(symbol, {at, strike})` - attributes the gamma at one exact observed SPY or QQQ strike to its expiries: does the level depend on a single maturity? (Alpha+).
 
 Replay:
 
