@@ -2029,3 +2029,195 @@ export interface SellWindowResponse {
   /** Vintage of the archive rows actually replayed. */
   archive_as_of?: ArchiveAsOf;
 }
+
+// ── Expiry impact and strike dependency (SPY, QQQ) ───────────────────────────
+// `GET /v1/exposure/expiry-impact/{symbol}` and `GET /v1/exposure/strike-dependency/{symbol}`.
+// Every `*_gex_usd` value is USD per 1% move (`gex_unit`), calls positive and puts
+// negative (`sign_convention`). The sign is a convention, not observed dealer inventory.
+
+/** One machine code behind `data_status`. */
+export interface GammaContextReason {
+  /** Machine code, e.g. `oi_vintage_unknown` or `stale_inputs`. */
+  code: string;
+  message: string;
+  /** Contracts excluded for this reason. Null when the reason excludes none. */
+  contract_count: number | null;
+}
+
+/** Gross, net, call and put GEX (USD per 1% move) and the contract count. */
+export interface GammaTotals {
+  gross_gex_usd: number;
+  net_gex_usd: number;
+  call_gex_usd: number;
+  put_gex_usd: number;
+  contract_count: number;
+  /**
+   * Present on `excluding_expiry` only: `available`, `zero_gross_exposure` or
+   * `no_remaining_contracts`.
+   */
+  status?: string;
+}
+
+/** One strike with current, excluded and remaining gross/net GEX. */
+export interface GammaStrikeImpact {
+  /** Can be fractional, e.g. `672.5`. */
+  strike: number;
+  distance_from_spot_pct: number;
+  current_gross_gex_usd: number;
+  current_net_gex_usd: number;
+  excluded_gross_gex_usd: number;
+  excluded_net_gex_usd: number;
+  remaining_gross_gex_usd: number;
+  remaining_net_gex_usd: number;
+  excluded_share_at_strike_pct: number | null;
+}
+
+/** What excluding the selected expiry changes. */
+export interface GammaRemovalImpact {
+  /** `100 × excluded gross / current gross`. Null when current gross is zero. */
+  removed_gross_share_pct: number | null;
+  retained_gross_share_pct: number | null;
+  /** `remaining net − current net` (minus the excluded net). */
+  net_gex_change_usd: number;
+  /** Sign of the modeled net total before exclusion. */
+  net_sign_before: string;
+  /** Sign of the modeled net total after exclusion. */
+  net_sign_after: string;
+  net_sign_changed: boolean | null;
+  /** Top `limit` strikes by gross removed. */
+  largest_gross_reductions: GammaStrikeImpact[];
+  /** Top `limit` strikes by gross remaining. */
+  strongest_remaining_concentrations: GammaStrikeImpact[];
+}
+
+/** A plain-language statement with its supporting values. */
+export interface GammaContextFact {
+  code: string;
+  text: string;
+  /** Free-form values behind `text`. The keys vary by `code`. */
+  supporting_values: Record<string, unknown>;
+}
+
+/** One expiry's part of the gamma at the requested strike. */
+export interface GammaExpiryRow extends GammaTotals {
+  /** `yyyy-MM-dd`. */
+  expiry: string;
+  valuation_cutoff_at: string;
+  last_trading_at: string;
+  last_trading_status: string;
+  settlement_at: string | null;
+  settlement_status: string;
+  calendar_days_to_expiry: number;
+  gross_share_pct: number | null;
+  share_of_strike_gross_pct?: number | null;
+}
+
+/**
+ * Gamma concentration with one expiry excluded (SPY, QQQ). Response of
+ * `GET /v1/exposure/expiry-impact/{symbol}?at=...`. Alpha+.
+ */
+export interface ExpiryImpactResponse {
+  symbol: string;
+  underlying_price: number;
+  /** SHA-256 fingerprint of the captured inputs; identical inputs give identical IDs. */
+  snapshot_id: string;
+  generated_at: string;
+  quote_at: string | null;
+  greeks_oldest_at: string | null;
+  greeks_newest_at: string | null;
+  calculation_version: string;
+  pricing_basis: string;
+  /**
+   * `partial` in normal operation (open-interest vintage is unknown), `stale` when an
+   * input predates the market-session freshness cutoff, `unavailable` when no contract
+   * qualifies.
+   */
+  data_status: string;
+  /** Machine codes and excluded-contract counts behind `data_status`. */
+  reasons: GammaContextReason[];
+  oi_as_of: string | null;
+  oi_vintage_status: string;
+  eligible_contract_count: number;
+  rejected_contract_count: number;
+  observed_min_strike: number | null;
+  observed_max_strike: number | null;
+  /** `usd_delta_notional_per_1pct_move`. */
+  gex_unit: string;
+  /** `calls_positive_puts_negative`. */
+  sign_convention: string;
+  /** `expiry_removal_sensitivity`. */
+  analysis_type: string;
+  /** `yyyy-MM-dd`. The expiry excluded in this comparison. */
+  selected_expiry: string;
+  /** How `selected_expiry` was chosen, e.g. `nearest_active`. */
+  selection_source: string;
+  /** Expiries you can pass as `expiry` (`yyyy-MM-dd`). */
+  available_expiries: string[];
+  /** The whole eligible chain. */
+  current: GammaTotals;
+  /** The selected expiry. */
+  excluded_expiry: GammaTotals;
+  /** The chain without the selected expiry. Carries `status`. */
+  excluding_expiry: GammaTotals;
+  impact: GammaRemovalImpact;
+  /** Every eligible strike with current, excluded and remaining gross/net GEX. */
+  strikes: GammaStrikeImpact[];
+  /** Plain-language statements with their supporting values. */
+  facts: GammaContextFact[];
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
+}
+
+/**
+ * One exact strike's gamma attributed to its expiries (SPY, QQQ). Response of
+ * `GET /v1/exposure/strike-dependency/{symbol}?at=...`. Alpha+.
+ *
+ * The metadata fields (`snapshot_id`, `pricing_basis`, `data_status`, `reasons`,
+ * timestamps, units) match {@link ExpiryImpactResponse}.
+ */
+export interface StrikeDependencyResponse {
+  symbol: string;
+  underlying_price: number;
+  snapshot_id: string;
+  generated_at: string;
+  quote_at: string | null;
+  greeks_oldest_at: string | null;
+  greeks_newest_at: string | null;
+  calculation_version: string;
+  pricing_basis: string;
+  data_status: string;
+  reasons: GammaContextReason[];
+  oi_as_of: string | null;
+  oi_vintage_status: string;
+  eligible_contract_count: number;
+  rejected_contract_count: number;
+  observed_min_strike: number | null;
+  observed_max_strike: number | null;
+  gex_unit: string;
+  sign_convention: string;
+  /** `strike_attribution`. */
+  analysis_type: string;
+  /** The exact listed strike requested. */
+  strike: number;
+  distance_from_spot_pct: number;
+  gross_gex_usd: number;
+  net_gex_usd: number;
+  call_gex_usd: number;
+  put_gex_usd: number;
+  contract_count: number;
+  /** The strike's gamma by expiry. */
+  by_expiry: GammaExpiryRow[];
+  /** `yyyy-MM-dd`. */
+  dominant_expiry: string | null;
+  dominant_expiry_share_pct: number | null;
+  /** Deployment that produced this response. */
+  endpoint_version?: string;
+  /** Live-feed freshness. All null on the replay service. */
+  data_as_of?: DataAsOf;
+  /** Vintage of the archive rows actually replayed. */
+  archive_as_of?: ArchiveAsOf;
+}
